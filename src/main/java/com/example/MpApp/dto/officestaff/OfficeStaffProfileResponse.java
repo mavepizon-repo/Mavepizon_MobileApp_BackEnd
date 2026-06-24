@@ -20,6 +20,8 @@ public class OfficeStaffProfileResponse {
 
     private long rejectedTasks;
 
+    private String profile;
+
     public Long getId() {
         return id;
     }
@@ -90,5 +92,13 @@ public class OfficeStaffProfileResponse {
 
     public void setRejectedTasks(long rejectedTasks) {
         this.rejectedTasks = rejectedTasks;
+    }
+
+    public String getProfile() {
+        return profile;
+    }
+
+    public void setProfile(String profile) {
+        this.profile = profile;
     }
 }

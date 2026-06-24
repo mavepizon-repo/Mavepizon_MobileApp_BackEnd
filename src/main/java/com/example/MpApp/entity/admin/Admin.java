@@ -21,6 +21,8 @@ public class Admin {
 
     private String phone_no;
 
+    private String profile;
+
     public Admin(Long id, String userName, String email, String password, String phone_no) {
         this.id = id;
         this.userName = userName;
@@ -67,5 +69,13 @@ public class Admin {
 
     public void setPhone_no(String phone_no) {
         this.phone_no = phone_no;
+    }
+
+    public String getProfile() {
+        return profile;
+    }
+
+    public void setProfile(String profile) {
+        this.profile = profile;
     }
 }

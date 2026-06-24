@@ -2,6 +2,7 @@ package com.example.MpApp.controller.admin;
 
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.teamlead.TeamLead;
 import com.example.MpApp.entity.teamlead.TeamLeadPermission;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -32,9 +34,17 @@ public class AdminController {
         return ResponseEntity.ok(service.registerAdmin(admin));
     }
 
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AdminLoginRequest request) {
         return ResponseEntity.ok(service.login(request));
+    }
+
+    @PutMapping("/update-files/{id}")
+    public ResponseEntity<?> updateAdminFiles(
+            @PathVariable Long id,
+            @RequestParam(value = "profile", required = false) MultipartFile profile) {
+        return ResponseEntity.ok(service.updateAdminFiles(id, profile));
     }
 
     // ================= TEAM LEAD =================
@@ -43,6 +53,15 @@ public class AdminController {
     public ResponseEntity<?> createTeamLead(@PathVariable Long adminId,
                                             @RequestBody TeamLead teamLead) {
         return ResponseEntity.ok(service.createTeamLead(adminId, teamLead));
+    }
+
+    @PutMapping("/teamlead/update-files/{id}")
+    public ResponseEntity<?> updateTeamLeadFiles(
+            @PathVariable Long id,
+            @RequestParam(value = "profile", required = false) MultipartFile profile,
+            @RequestParam(value = "aadhaar", required = false) MultipartFile aadhaar, // [Aadhaar Redacted]
+            @RequestParam(value = "resume", required = false) MultipartFile resume) {
+        return ResponseEntity.ok(service.updateTeamLeadFiles(id, profile, aadhaar, resume));
     }
 
     @GetMapping("/teamlead")
@@ -73,6 +92,15 @@ public class AdminController {
     public ResponseEntity<?> createStaff(@PathVariable Long adminId,
                                          @RequestBody OfficeStaff staff) {
         return ResponseEntity.ok(service.createStaff(adminId, staff));
+    }
+
+    @PutMapping("/staff/update-files/{id}")
+    public ResponseEntity<?> updateStaffFiles(
+            @PathVariable Long id,
+            @RequestParam(value = "profile", required = false) MultipartFile profile,
+            @RequestParam(value = "aadhaar", required = false) MultipartFile aadhaar, // [Aadhaar Redacted]
+            @RequestParam(value = "resume", required = false) MultipartFile resume) {
+        return ResponseEntity.ok(service.updateStaffFiles(id, profile, aadhaar, resume));
     }
 
     @PutMapping("/staff/{id}")
@@ -224,5 +252,63 @@ public class AdminController {
     public ResponseEntity<String> markHoliday(
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate holidayDate) {
         return ResponseEntity.ok(attendanceService.markHolidayOD(holidayDate));
+    }
+
+    // ================= FORGOT & RESET PASSWORD =================
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<?> sendOtp(@RequestParam String email) {
+        return ResponseEntity.ok(service.sendOtp(email));
+    }
+
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestParam String email, @RequestParam String otp) {
+        return ResponseEntity.ok(service.verifyOtp(email, otp));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetPassword(
+            @RequestParam String email,
+            @RequestParam String otp,
+            @RequestParam String newPassword) {
+        return ResponseEntity.ok(service.resetPassword(email, otp, newPassword));
+    }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<Map<String, Object>> getDashboardStats() {
+        return ResponseEntity.ok(service.getAdminDashboardStats());
+    }
+
+    // ================= BATCH STAFF ASSIGNMENT =================
+    @PostMapping("/{adminId}/training-batches")
+    public ResponseEntity<?> createTrainingBatch(
+            @PathVariable Long adminId,
+            @RequestBody TrainingBatch batch) {
+        try {
+            return ResponseEntity.ok(service.createTrainingBatch(adminId, batch));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/batches/{batchId}/assign-staff")
+    public ResponseEntity<?> assignStaffToBatch(
+            @PathVariable Long batchId,
+            @RequestParam Long staffId) {
+        try {
+            return ResponseEntity.ok(service.assignStaffToBatch(batchId, staffId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/batches/{batchId}/assign-staff-bulk")
+    public ResponseEntity<?> assignStaffToBatchBulk(
+            @PathVariable Long batchId,
+            @RequestBody List<Long> staffIds) {
+        try {
+            return ResponseEntity.ok(service.assignStaffToBatchBulk(batchId, staffIds));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

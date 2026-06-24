@@ -110,4 +110,28 @@ public class InternshipController {
         }
         return ResponseEntity.ok(internshipService.getAllInternships());
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Internship> getInternshipById(
+            @PathVariable Long id) {
+
+
+        return ResponseEntity.ok(
+                internshipService.getInternshipById(id)
+        );
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteInternship(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+
+        validateAdminOrTeamLead(authHeader);
+
+        internshipService.deleteInternship(id);
+
+        return ResponseEntity.ok(
+                "Internship Deleted Successfully"
+        );
+    }
 }

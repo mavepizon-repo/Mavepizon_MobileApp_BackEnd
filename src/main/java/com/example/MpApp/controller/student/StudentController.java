@@ -1,5 +1,6 @@
 package com.example.MpApp.controller.student;
 
+import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.student.StudentLoginRequest;
 import com.example.MpApp.dto.student.StudentRegisterRequest;
 import com.example.MpApp.entity.student.Student;
@@ -7,6 +8,7 @@ import com.example.MpApp.service.student.StudentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -22,6 +24,19 @@ public class StudentController {
     public ResponseEntity<?> registerStudent(
             @RequestBody StudentRegisterRequest request) {
         return ResponseEntity.ok(service.registerStudent(request));
+    }
+
+    @PutMapping("/update-files/{id}")
+    public ResponseEntity<?> updateStudentFiles(
+            @PathVariable Long id,
+            @RequestParam(value = "profile", required = false) MultipartFile profile) {
+        return ResponseEntity.ok(service.updateStudentFiles(id, profile));
+    }
+
+    // 📥 Retrieval Endpoint
+    @GetMapping("/files/{id}")
+    public ResponseEntity<FileViewResponse> getStudentFiles(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getStudentFiles(id));
     }
 
     // ================= LOGIN =================

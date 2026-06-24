@@ -10,7 +10,9 @@ import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
 import com.example.MpApp.repository.student.StudentRepository;
 import com.example.MpApp.exception.ResourceNotFoundException;
 
+import com.example.MpApp.service.CloudinaryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,8 @@ public class DeveloperTrainerService {
     private final CourseMaterialRepository materialRepository;
     private final CashFeeConfirmationRepository feeConfirmationRepository;
     private final CertificateRequestRepository certificateRequestRepository;
+
+    private final CloudinaryService cloudinaryService;
 
     @Value("${file.upload-dir.course-materials:uploads/materials/}")
     private String uploadDir;
@@ -106,29 +110,29 @@ public class DeveloperTrainerService {
         OfficeStaff trainer = validateTrainer(staffId);
         TrainingBatch batch = batchRepository.findById(batchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Target batch context not found for ID: " + batchId));
-        try {
-            File dir = new File(uploadDir);
-            if (!dir.exists()) dir.mkdirs();
 
-            Path path = Paths.get(uploadDir, System.currentTimeMillis() + "_" + file.getOriginalFilename());
-            Files.write(path, file.getBytes());
-
-            CourseMaterial m = new CourseMaterial();
-            m.setBatch(batch);
-            m.setTrainer(trainer);
-            m.setTitle(title);
-            m.setFileUrl(path.toString());
-
-            CourseMaterial saved = materialRepository.save(m);
-
-            Map<String, String> response = new HashMap<>();
-            response.put("materialId", saved.getId().toString());
-            response.put("batchId", batchId.toString());
-            response.put("message", "Course Study Material Uploaded Successfully");
-            return response;
-        } catch (IOException e) {
-            throw new IllegalStateException("System file deployment storage failure encountered during stream upload", e);
+        // Guard against empty form payloads
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Cannot process request. Uploaded file attachment is empty.");
         }
+
+        // Changed subFolder destination from "courseMaterial" to "material"
+        String secureUrl = cloudinaryService.uploadFile(file, "material");
+
+        CourseMaterial m = new CourseMaterial();
+        m.setBatch(batch);
+        m.setTrainer(trainer);
+        m.setTitle(title);
+        m.setFileUrl(secureUrl); // Stores the secure https url pointing to your new folder structure
+
+        CourseMaterial saved = materialRepository.save(m);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("materialId", saved.getId().toString());
+        response.put("batchId", batchId.toString());
+        response.put("fileUrl", secureUrl);
+        response.put("message", "Course Study Material Uploaded Successfully to material folder");
+        return response;
     }
 
     /* ================= ZOOM LINK (UPDATED RESPONSE) ================= */

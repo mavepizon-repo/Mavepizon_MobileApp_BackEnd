@@ -158,4 +158,26 @@ public class InternshipService {
     public List<Internship> getAllInternships() {
         return internshipRepository.findAll();
     }
+
+    public Internship getInternshipById(Long id) {
+
+        return internshipRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Internship not found with id: " + id
+                        ));
+    }
+
+    @Transactional
+    public void deleteInternship(Long id) {
+
+        Internship internship =
+                internshipRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Internship not found with id: " + id
+                                ));
+
+        internshipRepository.delete(internship);
+    }
 }

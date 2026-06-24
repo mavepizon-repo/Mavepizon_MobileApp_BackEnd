@@ -1,13 +1,11 @@
 package com.example.MpApp.controller.officestaff;
 
-import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
-import com.example.MpApp.dto.officestaff.OfficeStaffProfileResponse;
-import com.example.MpApp.dto.officestaff.PermissionRequestDTO;
+import com.example.MpApp.dto.file.FileViewResponse;
+import com.example.MpApp.dto.officestaff.*;
 import com.example.MpApp.entity.officestaff.OfficeStaffAttendance;
 import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
 import com.example.MpApp.service.officestaff.OfficeStaffAttendanceService;
 import com.example.MpApp.service.officestaff.OfficeStaffService;
-import com.example.MpApp.dto.officestaff.OfficeStaffLoginRequest;
 import com.example.MpApp.dto.task.TaskResponse;
 import com.example.MpApp.dto.task.TaskUpdateRequest;
 import com.example.MpApp.entity.task.Task;
@@ -94,8 +92,8 @@ public class OfficeStaffController {
     }
 
     @PostMapping("/{staffId}/checkin")
-    public ResponseEntity<OfficeStaffAttendance> checkIn(@PathVariable Long staffId) {
-        return ResponseEntity.ok(attendanceService.checkIn(staffId));
+    public ResponseEntity<OfficeStaffAttendance> checkIn(@PathVariable Long staffId, @RequestBody CheckInRequestDTO checkInRequestDTO) {
+        return ResponseEntity.ok(attendanceService.checkIn(staffId,checkInRequestDTO));
     }
 
     @PostMapping("/{staffId}/checkout")
@@ -106,5 +104,29 @@ public class OfficeStaffController {
     @GetMapping("/{staffId}/history")
     public ResponseEntity<List<OfficeStaffAttendance>> getHistory(@PathVariable Long staffId) {
         return ResponseEntity.ok(attendanceService.getStaffAttendanceHistory(staffId));
+    }
+
+    // ================= FORGOT & RESET PASSWORD =================
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<?> sendOtp(@RequestParam String email) {
+        return ResponseEntity.ok(service.sendOtp(email));
+    }
+
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestParam String email, @RequestParam String otp) {
+        return ResponseEntity.ok(service.verifyOtp(email, otp));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetPassword(
+            @RequestParam String email,
+            @RequestParam String otp,
+            @RequestParam String newPassword) {
+        return ResponseEntity.ok(service.resetPassword(email, otp, newPassword));
+    }
+
+    @GetMapping("/files/{id}")
+    public ResponseEntity<FileViewResponse> getStaffFiles(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getStaffFiles(id));
     }
 }

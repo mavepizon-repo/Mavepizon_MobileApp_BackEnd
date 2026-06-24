@@ -74,8 +74,10 @@ public class DeveloperTrainerController {
             @RequestParam("file") MultipartFile file) {
         try {
             return ResponseEntity.ok(trainerService.uploadMaterial(staffId, batchId, title, file));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
 

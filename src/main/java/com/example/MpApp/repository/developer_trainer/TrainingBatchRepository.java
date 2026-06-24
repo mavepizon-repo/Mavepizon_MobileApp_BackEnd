@@ -15,7 +15,7 @@ public interface TrainingBatchRepository extends JpaRepository<TrainingBatch, Lo
     @Query("SELECT new com.example.MpApp.dto.developer_trainer_staff.BatchDTO(" +
             "b.id, b.batchName, b.batchMode, b.zoomLink, oc.courseName, t.name) " +
             "FROM TrainingBatch b " +
-            "JOIN b.offeredCourse oc " +
+            "LEFT JOIN b.offeredCourse oc " +  // 👈 Changed to LEFT JOIN
             "JOIN b.trainer t " +
             "WHERE t.id = :trainerId")
     List<BatchDTO> findByTrainerIdWithDetails(@Param("trainerId") Long trainerId);

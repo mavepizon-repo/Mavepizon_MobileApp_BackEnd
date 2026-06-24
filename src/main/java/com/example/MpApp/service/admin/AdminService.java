@@ -3,6 +3,7 @@ package com.example.MpApp.service.admin;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.enums.StaffCategory;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.student.Student;
@@ -16,17 +17,20 @@ import com.example.MpApp.exception.DuplicateResourceException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
+import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
 import com.example.MpApp.repository.student.StudentRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadLeaveRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadPermissionRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
+import com.example.MpApp.service.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +49,9 @@ public class AdminService {
     private final BCryptPasswordEncoder encoder;
     private final JwtService jwtService;
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
+    private final TrainingBatchRepository batchRepository;
+
+    private final CloudinaryService cloudinaryService;
 
     private String generateTeamLeadId(String branch) {
         String branchCode = switch (branch.trim().toUpperCase()) {
@@ -97,6 +104,18 @@ public class AdminService {
         response.put("adminId", savedAdmin.getId().toString());
         response.put("message", "Admin registered successfully");
         return response;
+    }
+
+    public Admin updateAdminFiles(Long id, MultipartFile profile) {
+        Admin admin = adminRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Admin context not found for ID: " + id));
+
+        // Fix: Route explicitly to the admin/profile subfolder
+        if (profile != null && !profile.isEmpty()) {
+            admin.setProfile(cloudinaryService.uploadFile(profile, "admin/profile"));
+        }
+
+        return adminRepository.save(admin);
     }
 
     public Map<String, String> login(AdminLoginRequest request) {
@@ -160,6 +179,24 @@ public class AdminService {
         response.put("systemId", savedLead.getTeamLeadId());
         response.put("message", "Team Lead Created Successfully");
         return response;
+    }
+
+    public TeamLead updateTeamLeadFiles(Long id, MultipartFile profile, MultipartFile aadhaar, MultipartFile resume) {
+        TeamLead teamLead = teamLeadRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Team Lead context not found for ID: " + id));
+
+        // Fix: Route explicitly to teamLead subfolders
+        if (profile != null && !profile.isEmpty()) {
+            teamLead.setProfilePhoto(cloudinaryService.uploadFile(profile, "teamLead/profile"));
+        }
+        if (aadhaar != null && !aadhaar.isEmpty()) { // [Aadhaar Redacted]
+            teamLead.setAadhaarFile(cloudinaryService.uploadFile(aadhaar, "teamLead/aadhaar"));
+        }
+        if (resume != null && !resume.isEmpty()) {
+            teamLead.setResumeFile(cloudinaryService.uploadFile(resume, "teamLead/resume"));
+        }
+
+        return teamLeadRepository.save(teamLead);
     }
 
     // UNCHANGED GET METHOD
@@ -236,6 +273,24 @@ public class AdminService {
         response.put("systemId", savedStaff.getStaffId());
         response.put("message", "Office Staff Created Successfully");
         return response;
+    }
+
+    public OfficeStaff updateStaffFiles(Long id, MultipartFile profile, MultipartFile aadhaar, MultipartFile resume) {
+        OfficeStaff staff = officeStaffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Office Staff context not found for ID: " + id));
+
+        // Keeps the existing officeStaff directory grouping
+        if (profile != null && !profile.isEmpty()) {
+            staff.setProfilePhoto(cloudinaryService.uploadFile(profile, "officeStaff/profile"));
+        }
+        if (aadhaar != null && !aadhaar.isEmpty()) { // [Aadhaar Redacted]
+            staff.setAadhaarFile(cloudinaryService.uploadFile(aadhaar, "officeStaff/aadhaar"));
+        }
+        if (resume != null && !resume.isEmpty()) {
+            staff.setResumeFile(cloudinaryService.uploadFile(resume, "officeStaff/resume"));
+        }
+
+        return officeStaffRepository.save(staff);
     }
 
     @Transactional
@@ -433,5 +488,121 @@ public class AdminService {
 
     public List<TeamLeadPermission> getPendingAdminPermissions() {
         return teamLeadPermissionRepository.findByStatusIgnoreCase("PENDING");
+    }
+    // Add this map at the class level of AdminService
+    private final Map<String, String> otpStorage = new HashMap<>();
+
+    public String sendOtp(String email) {
+        Admin admin = adminRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+
+        String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
+        otpStorage.put(email, otp);
+        System.out.println("OTP for Admin (" + email + ") is: " + otp);
+        return "OTP sent successfully";
+    }
+
+    public String verifyOtp(String email, String otp) {
+        if (!otpStorage.containsKey(email)) {
+            throw new RuntimeException("OTP not requested");
+        }
+        if (!otpStorage.get(email).equals(otp)) {
+            throw new RuntimeException("Invalid OTP");
+        }
+        return "OTP Verified Successfully";
+    }
+
+    public String resetPassword(String email, String otp, String newPassword) {
+        if (!otpStorage.containsKey(email)) {
+            throw new RuntimeException("OTP not requested");
+        }
+        if (!otpStorage.get(email).equals(otp)) {
+            throw new RuntimeException("Invalid OTP");
+        }
+
+        Admin admin = adminRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+
+        admin.setPassword(encoder.encode(newPassword));
+        adminRepository.save(admin);
+        otpStorage.remove(email);
+        return "Password Reset Successful";
+    }
+
+    public Map<String, Object> getAdminDashboardStats() {
+        // Call the class's own methods directly
+        long branchStaffCount = getAllStaff().size();
+        long teamLeadCount = getAllTeamLeads().size();
+
+        Map<String, Object> statistics = new java.util.HashMap<>();
+        statistics.put("totalStaff", branchStaffCount);
+        statistics.put("totalTeamLeads", teamLeadCount);
+        statistics.put("systemStatus", "OPERATIONAL");
+        return statistics;
+    }
+
+    // ================= TRAINING BATCH CREATION (ADMIN) =================
+
+    @Transactional
+    public Map<String, String> createTrainingBatch(Long adminId, TrainingBatch batch) {
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin validation context missing for ID: " + adminId));
+
+        TrainingBatch savedBatch = batchRepository.save(batch);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("batchId", savedBatch.getId().toString());
+        response.put("batchName", savedBatch.getBatchName());
+        response.put("message", "Training Batch Created Successfully by Admin");
+        return response;
+    }
+
+    @Transactional
+    public Map<String, String> assignStaffToBatch(Long batchId, Long staffId) {
+        TrainingBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Training batch not found for ID: " + batchId));
+
+        OfficeStaff staff = officeStaffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Office staff not found for ID: " + staffId));
+
+        // Update the single trainer association defined in your TrainingBatch entity
+        batch.setTrainer(staff);
+        batchRepository.save(batch);
+
+        return Map.of(
+                "status", "SUCCESS",
+                "message", String.format("Staff member '%s' successfully assigned as Trainer for Batch '%s'",
+                        staff.getName(), batch.getBatchName())
+        );
+    }
+
+    /**
+     * Updates a batch assignment by checking a bulk list of IDs and setting the final valid staff element.
+     */
+    @Transactional
+    public Map<String, String> assignStaffToBatchBulk(Long batchId, List<Long> staffIds) {
+        if (staffIds == null || staffIds.isEmpty()) {
+            throw new IllegalArgumentException("Staff ID selection list cannot be empty.");
+        }
+
+        TrainingBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Training batch not found for ID: " + batchId));
+
+        // Resolve the collection list of staff members from the DB
+        List<OfficeStaff> staffList = officeStaffRepository.findAllById(staffIds);
+        if (staffList.isEmpty()) {
+            throw new ResourceNotFoundException("No valid office staff records found for the provided IDs.");
+        }
+
+        // Assign the primary/first candidate from the validated bulk collection list
+        OfficeStaff primaryStaff = staffList.get(0);
+        batch.setTrainer(primaryStaff);
+        batchRepository.save(batch);
+
+        return Map.of(
+                "status", "SUCCESS",
+                "message", String.format("Bulk evaluation complete. Primary Trainer '%s' assigned to Batch ID %d (Total validated: %d)",
+                        primaryStaff.getName(), batchId, staffList.size())
+        );
     }
 }

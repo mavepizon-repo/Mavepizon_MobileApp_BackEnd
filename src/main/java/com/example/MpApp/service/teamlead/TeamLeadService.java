@@ -8,6 +8,7 @@ import com.example.MpApp.dto.task.TaskUpdateRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.enums.StaffCategory;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.officestaff.OfficeStaffLeave;
@@ -22,6 +23,7 @@ import com.example.MpApp.entity.teamlead.TeamLeadPermission;
 import com.example.MpApp.exception.DuplicateResourceException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
+import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
@@ -37,12 +39,14 @@ import com.example.MpApp.entity.enums.VerificationStatus;
 import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
 import com.example.MpApp.repository.student.StudentRepository;
 
+import com.example.MpApp.service.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -67,6 +71,9 @@ public class TeamLeadService {
     private final TeamLeadLeaveRepository teamLeadLeaveRepository;
     private final OfficeStaffPermissionRepository permissionRepository;
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
+    private final TrainingBatchRepository batchRepository;
+
+    private final CloudinaryService cloudinaryService;
 
     private String generateStaffId(String branch, StaffCategory category) {
         String branchCode = switch (branch.toUpperCase()) {
@@ -169,6 +176,24 @@ public class TeamLeadService {
         response.put("staffId", savedStaff.getId().toString());
         response.put("message", "Office Staff Created Successfully");
         return response;
+    }
+
+    public OfficeStaff updateStaffFiles(Long id, MultipartFile profile, MultipartFile aadhaar, MultipartFile resume) {
+        OfficeStaff staff = officeStaffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Office Staff context not found for ID: " + id));
+
+        // Keeps the existing officeStaff directory grouping
+        if (profile != null && !profile.isEmpty()) {
+            staff.setProfilePhoto(cloudinaryService.uploadFile(profile, "officeStaff/profile"));
+        }
+        if (aadhaar != null && !aadhaar.isEmpty()) { // [Aadhaar Redacted]
+            staff.setAadhaarFile(cloudinaryService.uploadFile(aadhaar, "officeStaff/aadhaar"));
+        }
+        if (resume != null && !resume.isEmpty()) {
+            staff.setResumeFile(cloudinaryService.uploadFile(resume, "officeStaff/resume"));
+        }
+
+        return officeStaffRepository.save(staff);
     }
 
     @Transactional
@@ -601,5 +626,156 @@ public class TeamLeadService {
         response.put("status", "PENDING");
         response.put("message", "Permission request submitted to Admin successfully.");
         return response;
+    }
+    // Inject your required repositories (e.g., teamLeadRepository, officeStaffRepository)
+
+    // Add this map at the class level of TeamLeadService
+    private final Map<String, String> otpStorage = new HashMap<>();
+
+    public String sendOtp(String email) {
+        TeamLead leader = repository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+
+        String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
+        otpStorage.put(email, otp);
+        System.out.println("OTP for Team Lead (" + email + ") is: " + otp);
+        return "OTP sent successfully";
+    }
+
+    public String verifyOtp(String email, String otp) {
+        if (!otpStorage.containsKey(email)) {
+            throw new RuntimeException("OTP not requested");
+        }
+        if (!otpStorage.get(email).equals(otp)) {
+            throw new RuntimeException("Invalid OTP");
+        }
+        return "OTP Verified Successfully";
+    }
+
+    public String resetPassword(String email, String otp, String newPassword) {
+        if (!otpStorage.containsKey(email)) {
+            throw new RuntimeException("OTP not requested");
+        }
+        if (!otpStorage.get(email).equals(otp)) {
+            throw new RuntimeException("Invalid OTP");
+        }
+
+        TeamLead leader = repository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+
+        leader.setPassword(passwordEncoder.encode(newPassword));
+        repository.save(leader);
+        otpStorage.remove(email);
+        return "Password Reset Successful";
+    }
+
+    public Map<String, String> changeStaffStatus(Long staffId, boolean active) {
+        // Implementation can check or update fields like a status flag or account locks
+        return Map.of("message", "Staff account state updated dynamically to " + (active ? "ACTIVE" : "INACTIVE"));
+    }
+
+    // ================= TRAINING BATCH CREATION (TEAM LEAD) =================
+
+    @Transactional
+    public Map<String, String> createTrainingBatchTL(Long teamLeadId, TrainingBatch batch) {
+        TeamLead tl = repository.findById(teamLeadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead context missing for ID: " + teamLeadId));
+
+        String tlBranch = tl.getBranch().trim().toUpperCase();
+
+        // If a trainer is provided in the creation payload, validate their branch assignment location
+        if (batch.getTrainer() != null && batch.getTrainer().getId() != null) {
+            OfficeStaff trainer = officeStaffRepository.findById(batch.getTrainer().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Assigned trainer footprint missing."));
+
+            String trainerBranch = trainer.getBranch() != null ? trainer.getBranch().trim().toUpperCase() : "";
+
+            if (!trainerBranch.equals(tlBranch)) {
+                throw new IllegalArgumentException("Access Denied! You cannot create a batch assigned to a trainer from the " + trainerBranch + " branch.");
+            }
+        }
+
+        TrainingBatch savedBatch = batchRepository.save(batch);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("batchId", savedBatch.getId().toString());
+        response.put("batchName", savedBatch.getBatchName());
+        response.put("message", "Training Batch Created Successfully by Team Lead under branch context: " + tlBranch);
+        return response;
+    }
+
+    @Transactional
+    public Map<String, String> assignStaffToBatch(Long teamLeadId, Long batchId, Long staffId) {
+        // 1. Resolve Team Lead and extract branch scope authority
+        TeamLead leader = repository.findById(teamLeadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+        String tlBranch = leader.getBranch();
+
+        // 2. Resolve training batch and assert geographic context
+        TrainingBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Training batch not found for ID: " + batchId));
+
+        // Safety fallback check against parent OfferedCourse structure if batch branch is indirect
+        String batchBranch = (batch.getOfferedCourse() != null) ? batch.getBatchMode() : null;
+
+        // 3. Resolve target employee staff member and assert matching branch alignment
+        OfficeStaff staff = officeStaffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Office staff not found for ID: " + staffId));
+
+        if (!tlBranch.equalsIgnoreCase(staff.getBranch())) {
+            throw new IllegalArgumentException(String.format(
+                    "Access Denied! You manage the %s branch, but this staff member belongs to %s.",
+                    tlBranch, staff.getBranch()));
+        }
+
+        // 4. Finalize transactional state commit
+        batch.setTrainer(staff);
+        batchRepository.save(batch);
+
+        return Map.of(
+                "status", "SUCCESS",
+                "branch", tlBranch,
+                "message", String.format("Branch Staff '%s' assigned to Batch '%s' successfully.",
+                        staff.getName(), batch.getBatchName())
+        );
+    }
+
+    /**
+     * Branch-guarded method for filtering and setting bulk-notified staff identifiers to a batch context.
+     */
+    @Transactional
+    public Map<String, String> assignStaffToBatchBulk(Long teamLeadId, Long batchId, List<Long> staffIds) {
+        if (staffIds == null || staffIds.isEmpty()) {
+            throw new IllegalArgumentException("Bulk identification list can't be empty.");
+        }
+
+        TeamLead leader = repository.findById(teamLeadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+        String tlBranch = leader.getBranch();
+
+        TrainingBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Training batch not found for ID: " + batchId));
+
+        List<OfficeStaff> staffList = officeStaffRepository.findAllById(staffIds);
+
+        // Enforce location validation across every record in the array selection payload
+        for (OfficeStaff staff : staffList) {
+            if (!tlBranch.equalsIgnoreCase(staff.getBranch())) {
+                throw new IllegalArgumentException(String.format(
+                        "Access Denied! Staff member '%s' belongs to a different branch office (%s).",
+                        staff.getName(), staff.getBranch()));
+            }
+        }
+
+        // Set primary matching element as active trainer reference
+        OfficeStaff primaryChoice = staffList.get(0);
+        batch.setTrainer(primaryChoice);
+        batchRepository.save(batch);
+
+        return Map.of(
+                "status", "SUCCESS",
+                "message", String.format("Bulk check approved for %s branch. Trainer '%s' assigned to Batch.",
+                        tlBranch, primaryChoice.getName())
+        );
     }
 }

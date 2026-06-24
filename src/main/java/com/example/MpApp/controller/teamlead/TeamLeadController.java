@@ -1,5 +1,6 @@
     package com.example.MpApp.controller.teamlead;
 
+    import com.example.MpApp.dto.common.ForgotPasswordRequest;
     import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
     import com.example.MpApp.dto.task.TaskRequest;
     import com.example.MpApp.dto.task.TaskResponse;
@@ -8,6 +9,7 @@
     import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
     import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
     import com.example.MpApp.entity.collegestaff.CollegeStaff;
+    import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
     import com.example.MpApp.entity.officestaff.OfficeStaff;
     import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
     import com.example.MpApp.entity.student.Student;
@@ -16,8 +18,10 @@
     import com.example.MpApp.service.teamlead.TeamLeadService;
     import com.example.MpApp.entity.enums.TaskStatus;
     import lombok.RequiredArgsConstructor;
+    import org.springframework.http.HttpStatus;
     import org.springframework.http.ResponseEntity;
     import org.springframework.web.bind.annotation.*;
+    import org.springframework.web.multipart.MultipartFile;
 
     import java.time.LocalDate;
     import java.util.HashMap;
@@ -49,6 +53,15 @@
                 return ResponseEntity.status(404).body(map);
             }
             return ResponseEntity.ok(response);
+        }
+
+        @PutMapping("/update-files/{id}")
+        public ResponseEntity<?> updateStaffFiles(
+                @PathVariable Long id,
+                @RequestParam(value = "profile", required = false) MultipartFile profile,
+                @RequestParam(value = "aadhaar", required = false) MultipartFile aadhaar, // [Aadhaar Redacted]
+                @RequestParam(value = "resume", required = false) MultipartFile resume) {
+            return ResponseEntity.ok(service.updateStaffFiles(id, profile, aadhaar, resume));
         }
 
         @PutMapping("/{teamLeadId}/staff/{staffId}")
@@ -306,5 +319,75 @@
                 @PathVariable Long teamLeadId,
                 @RequestBody TeamLeadPermissionRequestDTO request) {
             return ResponseEntity.ok(service.requestPermissionToAdmin(teamLeadId, request));
+        }
+
+        // ================= NEWLY ADDED ENDPOINTS =================
+
+        // ================= FORGOT & RESET PASSWORD =================
+        @PostMapping("/forgot-password/send-otp")
+        public ResponseEntity<?> sendOtp(@RequestParam String email) {
+            return ResponseEntity.ok(service.sendOtp(email));
+        }
+
+        @PostMapping("/forgot-password/verify-otp")
+        public ResponseEntity<?> verifyOtp(@RequestParam String email, @RequestParam String otp) {
+            return ResponseEntity.ok(service.verifyOtp(email, otp));
+        }
+
+        @PostMapping("/forgot-password/reset")
+        public ResponseEntity<?> resetPassword(
+                @RequestBody ForgotPasswordRequest forgotPasswordRequest) {
+            return ResponseEntity.ok(service.resetPassword(forgotPasswordRequest.getEmail(),
+                    forgotPasswordRequest.getOtp(),
+                    forgotPasswordRequest.getNewPassword()));
+        }
+
+        @PatchMapping("/staff/{staffId}/status")
+        public ResponseEntity<Map<String, String>> toggleStaffStatus(
+                @PathVariable Long staffId,
+                @RequestParam boolean active) {
+            return ResponseEntity.ok(service.changeStaffStatus(staffId, active));
+        }
+
+        // ================= BATCH STAFF ASSIGNMENT (BRANCH GUARDED) =================
+        @PostMapping("/{teamLeadId}/training-batches")
+        public ResponseEntity<?> createTrainingBatchTL(
+                @PathVariable Long teamLeadId,
+                @RequestBody TrainingBatch batch) {
+            try {
+                return ResponseEntity.ok(service.createTrainingBatchTL(teamLeadId, batch));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
+        }
+
+        @PostMapping("/{teamLeadId}/batches/{batchId}/assign-staff")
+        public ResponseEntity<?> assignStaffToBatchTL(
+                @PathVariable Long teamLeadId,
+                @PathVariable Long batchId,
+                @RequestParam Long staffId) {
+            try {
+                return ResponseEntity.ok(service.assignStaffToBatch(teamLeadId, batchId, staffId));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
+        }
+
+        @PostMapping("/{teamLeadId}/batches/{batchId}/assign-staff-bulk")
+        public ResponseEntity<?> assignStaffToBatchBulkTL(
+                @PathVariable Long teamLeadId,
+                @PathVariable Long batchId,
+                @RequestBody List<Long> staffIds) {
+            try {
+                return ResponseEntity.ok(service.assignStaffToBatchBulk(teamLeadId, batchId, staffIds));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
         }
     }

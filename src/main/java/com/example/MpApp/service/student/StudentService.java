@@ -1,13 +1,16 @@
 package com.example.MpApp.service.student;
 
 import com.example.MpApp.config.JwtService;
+import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.student.StudentLoginRequest;
 import com.example.MpApp.dto.student.StudentRegisterRequest;
 import com.example.MpApp.entity.student.Student;
 import com.example.MpApp.repository.student.StudentRepository;
+import com.example.MpApp.service.CloudinaryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -23,6 +26,9 @@ public class StudentService {
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     // ================= OTP STORAGE =================
     private final Map<String, String> otpStorage = new HashMap<>();
@@ -84,6 +90,25 @@ public class StudentService {
                 request.getSkills());
 
         return repository.save(student);
+    }
+
+    public Student updateStudentFiles(Long id, MultipartFile profile) {
+        Student student = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Student Not Found"));
+
+        // Fix: Guard against empty multi-part form payloads
+        if (profile != null && !profile.isEmpty()) {
+            student.setProfilePhoto(cloudinaryService.uploadFile(profile, "student/profile"));
+        }
+
+        return repository.save(student);
+    }
+
+    // 🔍 RETRIEVAL ACTION
+    public FileViewResponse getStudentFiles(Long id) {
+        Student student = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Student Not Found"));
+        return new FileViewResponse(student.getProfilePhoto(),null,null);
     }
 
     // ================= LOGIN =================
@@ -201,4 +226,6 @@ public class StudentService {
 
         return repository.save(student);
     }
+
+
 }

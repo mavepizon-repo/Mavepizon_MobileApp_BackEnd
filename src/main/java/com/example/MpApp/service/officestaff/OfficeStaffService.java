@@ -1,5 +1,6 @@
 package com.example.MpApp.service.officestaff;
 
+import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
 import com.example.MpApp.dto.officestaff.OfficeStaffProfileResponse;
 import com.example.MpApp.dto.officestaff.PermissionRequestDTO;
@@ -147,6 +148,8 @@ public class OfficeStaffService {
                                 staffId,
                                 TaskStatus.REWORK_REQUIRED));
 
+        response.setProfile(staff.getProfilePhoto());
+
         return response;
     }
 
@@ -237,5 +240,53 @@ public class OfficeStaffService {
                 .orElseThrow(() -> new ResourceNotFoundException("Staff validation footprint missing for ID: " + staffId));
 
         return permissionRepository.findByStaffIdOrderByPermissionDateDesc(staffId);
+    }
+
+    // Inject your officeStaffRepository directly here
+
+    // Add this map at the class level of OfficeStaffService
+    private final Map<String, String> otpStorage = new HashMap<>();
+
+    public String sendOtp(String email) {
+        OfficeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+
+        String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
+        otpStorage.put(email, otp);
+        System.out.println("OTP for Office Staff (" + email + ") is: " + otp);
+        return "OTP sent successfully";
+    }
+
+    public String verifyOtp(String email, String otp) {
+        if (!otpStorage.containsKey(email)) {
+            throw new RuntimeException("OTP not requested");
+        }
+        if (!otpStorage.get(email).equals(otp)) {
+            throw new RuntimeException("Invalid OTP");
+        }
+        return "OTP Verified Successfully";
+    }
+
+    public String resetPassword(String email, String otp, String newPassword) {
+        if (!otpStorage.containsKey(email)) {
+            throw new RuntimeException("OTP not requested");
+        }
+        if (!otpStorage.get(email).equals(otp)) {
+            throw new RuntimeException("Invalid OTP");
+        }
+
+        OfficeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+
+        staff.setPassword(passwordEncoder.encode(newPassword));
+        repository.save(staff);
+        otpStorage.remove(email);
+        return "Password Reset Successful";
+    }
+
+    public FileViewResponse getStaffFiles(Long id) {
+        OfficeStaff staff = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Staff Member Not Found"));
+        return new FileViewResponse(staff.getProfilePhoto(), staff.getAadhaarFile(), staff.getResumeFile());
     }
 }
