@@ -39,7 +39,6 @@ public class DeveloperTrainerService {
     private final StudentAttendanceRepository attendanceRepository;
     private final CourseMaterialRepository materialRepository;
     private final CashFeeConfirmationRepository feeConfirmationRepository;
-    private final CertificateRequestRepository certificateRequestRepository;
 
     private final CloudinaryService cloudinaryService;
 
@@ -151,27 +150,6 @@ public class DeveloperTrainerService {
         return response;
     }
 
-    /* ================= CERTIFICATE REQUEST (UPDATED RESPONSE) ================= */
-    @Transactional
-    public Map<String, String> updateCertificateStatus(Long staffId, Long batchId) {
-        OfficeStaff trainer = validateTrainer(staffId);
-        TrainingBatch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new ResourceNotFoundException("Training batch trace not found for ID: " + batchId));
-
-        CertificateRequest cr = new CertificateRequest();
-        cr.setTrainer(trainer);
-        cr.setBatch(batch);
-        cr.setStatus("PENDING");
-
-        CertificateRequest saved = certificateRequestRepository.save(cr);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("requestId", saved.getId().toString());
-        response.put("batchId", batchId.toString());
-        response.put("status", "PENDING");
-        response.put("message", "Certificate Issuance Audit Claim Raised Successfully");
-        return response;
-    }
 
     /* ================= FEES CONFIRMATION (UPDATED RESPONSE) ================= */
     @Transactional
@@ -220,5 +198,24 @@ public class DeveloperTrainerService {
 
         dashboard.put("attendanceToday", attendanceToday);
         return dashboard;
+    }
+
+    // Add this to your injected dependencies at the top of DeveloperTrainerService
+    private final BatchStudentRepository batchStudentRepository;
+
+    /* ================= GET BATCH STUDENTS (OPTIMIZED) ================= */
+    public List<BatchStudentDTO> getBatchStudents(Long staffId, Long batchId) {
+        validateTrainer(staffId);
+
+        TrainingBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Training batch not found for ID: " + batchId));
+
+        // Security check: Ensure this trainer actually owns this batch
+        if (batch.getTrainer() == null || !batch.getTrainer().getId().equals(staffId)) {
+            throw new IllegalArgumentException("Access Denied: You are not assigned to this training batch.");
+        }
+
+        // Returns the mappings with the Student objects pre-fetched
+        return batchStudentRepository.findBatchStudentsFlat(batchId);
     }
 }

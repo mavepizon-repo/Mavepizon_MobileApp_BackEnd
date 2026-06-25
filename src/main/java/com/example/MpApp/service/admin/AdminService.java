@@ -3,6 +3,7 @@ package com.example.MpApp.service.admin;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.developer_trainer_staff.BatchStudents;
 import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.enums.StaffCategory;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
@@ -17,6 +18,7 @@ import com.example.MpApp.exception.DuplicateResourceException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
+import com.example.MpApp.repository.developer_trainer.BatchStudentRepository;
 import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
 import com.example.MpApp.repository.student.StudentRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadLeaveRepository;
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +53,7 @@ public class AdminService {
     private final JwtService jwtService;
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
     private final TrainingBatchRepository batchRepository;
+    private final BatchStudentRepository batchStudentRepository;
 
     private final CloudinaryService cloudinaryService;
 
@@ -603,6 +607,57 @@ public class AdminService {
                 "status", "SUCCESS",
                 "message", String.format("Bulk evaluation complete. Primary Trainer '%s' assigned to Batch ID %d (Total validated: %d)",
                         primaryStaff.getName(), batchId, staffList.size())
+        );
+    }
+
+    @Transactional
+    public Map<String, String> assignStudentsToBatch(Long batchId, List<Long> studentIds) {
+
+        if (studentIds == null || studentIds.isEmpty()) {
+            throw new IllegalArgumentException("Student ID list cannot be empty.");
+        }
+
+        // 1. Resolve training batch
+        TrainingBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new RuntimeException("Training batch not found for ID: " + batchId));
+
+        // 2. Process student enrollments
+        List<BatchStudents> newEnrollments = new ArrayList<>();
+        int successfullyAdded = 0;
+        int skippedDuplicates = 0;
+
+        for (Long studentId : studentIds) {
+            // Check for duplicates to prevent DB constraint violations
+            if (batchStudentRepository.existsByBatchIdAndStudentId(batchId, studentId)) {
+                skippedDuplicates++;
+                continue;
+            }
+
+            // Fetch the student
+            Student student = studentRepository.findById(studentId)
+                    .orElseThrow(() -> new RuntimeException("Student not found for ID: " + studentId));
+
+            // Create the enrollment mapping
+            BatchStudents enrollment = new BatchStudents();
+            enrollment.setBatch(batch);
+            enrollment.setStudent(student);
+            enrollment.setEnrolledDate(java.time.LocalDate.now());
+
+            newEnrollments.add(enrollment);
+            successfullyAdded++;
+        }
+
+        // 3. Bulk save valid enrollments
+        if (!newEnrollments.isEmpty()) {
+            batchStudentRepository.saveAll(newEnrollments);
+        }
+
+        return Map.of(
+                "status", "SUCCESS",
+                "message", "Batch student assignment complete.",
+                "studentsAdded", String.valueOf(successfullyAdded),
+                "skippedDuplicates", String.valueOf(skippedDuplicates),
+                "batchName", batch.getBatchName()
         );
     }
 }

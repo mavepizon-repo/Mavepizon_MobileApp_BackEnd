@@ -75,23 +75,28 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // ================= PUBLIC =================
-                        // ================= PUBLIC =================
                         .requestMatchers(
                                 "/api/admin/register",
                                 "/api/admin/login",
                                 "/api/admin/forgot-password/**",
+                                "/api/admin/change-password",
 
                                 "/api/teamlead/login",
                                 "/api/teamlead/forgot-password/**",
+                                "/api/teamlead/change-password",
 
                                 "/api/officestaff/login",
                                 "/api/officestaff/forgot-password/**",
+                                "/api/officestaff/change-password",
 
                                 "/api/student/register",
                                 "/api/student/login",
                                 "/api/student/forgot-password/**",
+                                "/api/student/change-password",
 
-                                "/api/collegestaff/login"
+                                "/api/collegestaff/login",
+                                "/api/collegestaff/forgot-password/**",
+                                "/api/collegestaff/change-password"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

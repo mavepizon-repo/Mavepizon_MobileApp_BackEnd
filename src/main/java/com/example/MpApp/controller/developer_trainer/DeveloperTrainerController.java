@@ -104,21 +104,30 @@ public class DeveloperTrainerController {
         }
     }
 
-    @PostMapping("/{staffId}/certificate-status")
-    public ResponseEntity<?> requestCertificates(@PathVariable Long staffId, @RequestParam("batchId") Long batchId) {
-        try {
-            return ResponseEntity.ok(trainerService.updateCertificateStatus(staffId, batchId));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
     @GetMapping("/{staffId}/dashboard")
     public ResponseEntity<?> dashboard(@PathVariable Long staffId) {
         try {
             return ResponseEntity.ok(trainerService.getDashboard(staffId));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    /*
+     =====================================
+     BATCH STUDENTS RETRIEVAL
+     =====================================
+     */
+    @GetMapping("/{staffId}/batches/{batchId}/students")
+    public ResponseEntity<?> getBatchStudents(
+            @PathVariable Long staffId,
+            @PathVariable Long batchId) {
+        try {
+            return ResponseEntity.ok(trainerService.getBatchStudents(staffId, batchId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }

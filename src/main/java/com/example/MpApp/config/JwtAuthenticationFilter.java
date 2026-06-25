@@ -27,7 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Lazy
     private CustomUserDetailsService customUserDetailsService;
 
-    // Cleaned up static whitelists for base/exact matches
+    // Fully synced with SecurityConfig public routes
     private static final List<String> PUBLIC_URLS = List.of(
             "/api/admin/register",
             "/api/admin/login",
@@ -41,7 +41,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             "/api/student/register",
             "/api/student/login",
-            "/api/collegestaff/login"
+            "/api/student/change-password",
+
+            "/api/collegestaff/login",
+            "/api/collegestaff/change-password"
     );
 
     @Override

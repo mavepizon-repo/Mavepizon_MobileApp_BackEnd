@@ -390,4 +390,18 @@
                 return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
             }
         }
+
+        // ================= BATCH STUDENT ASSIGNMENT =================
+
+        @PostMapping("/batches/{batchId}/assign-students")
+        public ResponseEntity<?> assignStudentsToBatch(
+                @PathVariable Long batchId,
+                @RequestBody List<Long> studentIds) {
+            try {
+                return ResponseEntity.ok(service.assignStudentsToBatch(batchId, studentIds));
+            } catch (Exception e) {
+                // Catches any missing resources or validation errors and returns a clean 400 response
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
+        }
     }

@@ -26,5 +26,39 @@ public class BatchStudents {
     public BatchStudents() {
     }
 
-    // getters setters
+    // =========================================
+    // GETTERS AND SETTERS
+    // =========================================
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public TrainingBatch getBatch() {
+        return batch;
+    }
+
+    public void setBatch(TrainingBatch batch) {
+        this.batch = batch;
+    }
+
+    public Student getStudent() {
+        return student;
+    }
+
+    public void setStudent(Student student) {
+        this.student = student;
+    }
+
+    public LocalDate getEnrolledDate() {
+        return enrolledDate;
+    }
+
+    public void setEnrolledDate(LocalDate enrolledDate) {
+        this.enrolledDate = enrolledDate;
+    }
 }

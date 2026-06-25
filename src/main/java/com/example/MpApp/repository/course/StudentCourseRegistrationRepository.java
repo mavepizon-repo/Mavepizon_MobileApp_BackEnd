@@ -47,4 +47,13 @@ public interface StudentCourseRegistrationRepository extends JpaRepository<Stude
             WHERE r.id = :id
             """)
     Optional<StudentCourseRegistration> findByIdWithStudentAndCourse(@Param("id") Long id);
+    @Query("""
+            SELECT r 
+            FROM StudentCourseRegistration r 
+            JOIN FETCH r.student s 
+            JOIN FETCH r.offeredCourse c 
+            WHERE c.id = (SELECT tb.offeredCourse.id FROM TrainingBatch tb WHERE tb.id = :batchId) 
+            AND s.id IN (SELECT bs.student.id FROM BatchStudents bs WHERE bs.batch.id = :batchId)
+            """)
+    List<StudentCourseRegistration> findRegistrationsByBatchId(@Param("batchId") Long batchId);
 }
