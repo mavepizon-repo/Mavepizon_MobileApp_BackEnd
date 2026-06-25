@@ -3,6 +3,8 @@ package com.example.MpApp.service.admin;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.course.Course;
+import com.example.MpApp.entity.course.OfferedCourse;
 import com.example.MpApp.entity.developer_trainer_staff.BatchStudents;
 import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.enums.StaffCategory;
@@ -18,6 +20,8 @@ import com.example.MpApp.exception.DuplicateResourceException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
+import com.example.MpApp.repository.course.CourseRepository;
+import com.example.MpApp.repository.course.OfferedCourseRepository;
 import com.example.MpApp.repository.developer_trainer.BatchStudentRepository;
 import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
 import com.example.MpApp.repository.student.StudentRepository;
@@ -54,6 +58,8 @@ public class AdminService {
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
     private final TrainingBatchRepository batchRepository;
     private final BatchStudentRepository batchStudentRepository;
+    private final OfferedCourseRepository offeredCourseRepository;
+    private final CourseRepository courseRepository;
 
     private final CloudinaryService cloudinaryService;
 
@@ -548,16 +554,30 @@ public class AdminService {
     // ================= TRAINING BATCH CREATION (ADMIN) =================
 
     @Transactional
-    public Map<String, String> createTrainingBatch(Long adminId, TrainingBatch batch) {
+    public Map<String, String> createTrainingBatch(Long adminId, TrainingBatch batch, Long courseId, Long offeredCourseId) {
         adminRepository.findById(adminId)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin validation context missing for ID: " + adminId));
+
+        // Link Course if provided
+        if (courseId != null) {
+            Course course = courseRepository.findById(courseId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Course not found for ID: " + courseId));
+            batch.setCourse(course);
+        }
+
+        // Link OfferedCourse (Batch/Offering) if provided
+        if (offeredCourseId != null) {
+            OfferedCourse offeredCourse = offeredCourseRepository.findById(offeredCourseId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Offered Course not found for ID: " + offeredCourseId));
+            batch.setOfferedCourse(offeredCourse);
+        }
 
         TrainingBatch savedBatch = batchRepository.save(batch);
 
         Map<String, String> response = new HashMap<>();
         response.put("batchId", savedBatch.getId().toString());
         response.put("batchName", savedBatch.getBatchName());
-        response.put("message", "Training Batch Created Successfully by Admin");
+        response.put("message", "Training Batch Created Successfully with Course/Offering links by Admin");
         return response;
     }
 

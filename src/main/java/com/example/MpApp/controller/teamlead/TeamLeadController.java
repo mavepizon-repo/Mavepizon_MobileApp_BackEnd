@@ -363,15 +363,14 @@
             }
         }
 
-        @PostMapping("/{teamLeadId}/batches/{batchId}/assign-staff")
-        public ResponseEntity<?> assignStaffToBatchTL(
-                @PathVariable Long teamLeadId,
-                @PathVariable Long batchId,
-                @RequestParam Long staffId) {
+        @PostMapping("/{adminId}/create-batch")
+        public ResponseEntity<?> createBatch(
+                @PathVariable Long adminId,
+                @RequestBody TrainingBatch batch,
+                @RequestParam(required = false) Long courseId,
+                @RequestParam(required = false) Long offeredCourseId) {
             try {
-                return ResponseEntity.ok(service.assignStaffToBatch(teamLeadId, batchId, staffId));
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+                return ResponseEntity.ok(service.createTrainingBatch(adminId, batch, courseId, offeredCourseId));
             } catch (Exception e) {
                 return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
             }

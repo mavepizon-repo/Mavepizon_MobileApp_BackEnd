@@ -8,6 +8,8 @@ import com.example.MpApp.dto.task.TaskUpdateRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.course.Course;
+import com.example.MpApp.entity.course.OfferedCourse;
 import com.example.MpApp.entity.developer_trainer_staff.BatchStudents;
 import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.enums.StaffCategory;
@@ -24,6 +26,8 @@ import com.example.MpApp.entity.teamlead.TeamLeadPermission;
 import com.example.MpApp.exception.DuplicateResourceException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
+import com.example.MpApp.repository.course.CourseRepository;
+import com.example.MpApp.repository.course.OfferedCourseRepository;
 import com.example.MpApp.repository.developer_trainer.BatchStudentRepository;
 import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
@@ -76,6 +80,8 @@ public class TeamLeadService {
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
     private final TrainingBatchRepository batchRepository;
     private final BatchStudentRepository batchStudentRepository;
+    private final OfferedCourseRepository offeredCourseRepository;
+    private final CourseRepository courseRepository;
 
     private final CloudinaryService cloudinaryService;
 
@@ -709,39 +715,35 @@ public class TeamLeadService {
     }
 
     @Transactional
-    public Map<String, String> assignStaffToBatch(Long teamLeadId, Long batchId, Long staffId) {
-        // 1. Resolve Team Lead and extract branch scope authority
-        TeamLead leader = repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
-        String tlBranch = leader.getBranch();
+    public Map<String, String> createTrainingBatch(Long teamleadId, TrainingBatch batch, Long courseId, Long offeredCourseId) {
+        repository.findById(teamleadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin validation context missing for ID: " + teamleadId));
 
-        // 2. Resolve training batch and assert geographic context
-        TrainingBatch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new ResourceNotFoundException("Training batch not found for ID: " + batchId));
-
-        // Safety fallback check against parent OfferedCourse structure if batch branch is indirect
-        String batchBranch = (batch.getOfferedCourse() != null) ? batch.getBatchMode() : null;
-
-        // 3. Resolve target employee staff member and assert matching branch alignment
-        OfficeStaff staff = officeStaffRepository.findById(staffId)
-                .orElseThrow(() -> new ResourceNotFoundException("Office staff not found for ID: " + staffId));
-
-        if (!tlBranch.equalsIgnoreCase(staff.getBranch())) {
-            throw new IllegalArgumentException(String.format(
-                    "Access Denied! You manage the %s branch, but this staff member belongs to %s.",
-                    tlBranch, staff.getBranch()));
+        // Link Course if provided
+        if (courseId != null) {
+            Course course = courseRepository.findById(courseId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Course not found for ID: " + courseId));
+            batch.setCourse(course);
+        } else {
+            batch.setCourse(null);
         }
 
-        // 4. Finalize transactional state commit
-        batch.setTrainer(staff);
-        batchRepository.save(batch);
+        // Link OfferedCourse if provided
+        if (offeredCourseId != null) {
+            OfferedCourse offeredCourse = offeredCourseRepository.findById(offeredCourseId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Offered Course not found for ID: " + offeredCourseId));
+            batch.setOfferedCourse(offeredCourse);
+        } else {
+            batch.setOfferedCourse(null);
+        }
 
-        return Map.of(
-                "status", "SUCCESS",
-                "branch", tlBranch,
-                "message", String.format("Branch Staff '%s' assigned to Batch '%s' successfully.",
-                        staff.getName(), batch.getBatchName())
-        );
+        TrainingBatch savedBatch = batchRepository.save(batch);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("batchId", savedBatch.getId().toString());
+        response.put("batchName", savedBatch.getBatchName());
+        response.put("message", "Training Batch Created Successfully");
+        return response;
     }
 
     /**

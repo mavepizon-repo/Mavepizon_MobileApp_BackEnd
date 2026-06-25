@@ -1,7 +1,9 @@
 package com.example.MpApp.service.course;
 
 import com.example.MpApp.config.JwtService;
+import com.example.MpApp.entity.course.Course;
 import com.example.MpApp.entity.course.OfferedCourse;
+import com.example.MpApp.repository.course.CourseRepository;
 import com.example.MpApp.repository.course.OfferedCourseRepository;
 import com.example.MpApp.repository.course.StudentCourseRegistrationRepository;
 import com.example.MpApp.dto.course.StudentCourseRegistrationRequest;
@@ -31,6 +33,8 @@ public class StudentCourseRegistrationService {
     private OfferedCourseRepository offeredCourseRepository;
 
     @Autowired
+    private CourseRepository courseRepository;
+    @Autowired
     private JwtService jwtService;
 
     /*
@@ -40,53 +44,38 @@ public class StudentCourseRegistrationService {
      */
     @Transactional
     public Map<String, String> registerCourse(String token, StudentCourseRegistrationRequest request) {
-
         String email = jwtService.extractEmail(token);
-
         Student student = studentRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Student Not Found"));
 
-        // 1. Fetch the specific batch (OfferedCourse)
-        OfferedCourse batch = offeredCourseRepository.findById(request.getOfferedCourseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Batch Not Found"));
-
-        // 2. Check for duplicate registration in THIS specific batch
-        boolean alreadyRegistered = repository.existsByStudentStudentIdAndOfferedCourseId(
-                student.getStudentId(), batch.getId());
-
-        if (alreadyRegistered) {
-            throw new IllegalArgumentException("Already Registered For This Batch");
-        }
-
-        // 3. Seat Management on the OfferedCourse
-        if ("ONLINE".equalsIgnoreCase(request.getMode())) {
-            if (batch.getOnlineRemainingSeats() <= 0) {
-                throw new IllegalStateException("No Online Seats Available in this Batch");
-            }
-            batch.setOnlineRemainingSeats(batch.getOnlineRemainingSeats() - 1);
-            batch.setOnlineFilledSeats(batch.getOnlineFilledSeats() + 1);
-
-        } else if ("OFFLINE".equalsIgnoreCase(request.getMode())) {
-            if (batch.getOfflineRemainingSeats() <= 0) {
-                throw new IllegalStateException("No Offline Seats Available in this Batch");
-            }
-            batch.setOfflineRemainingSeats(batch.getOfflineRemainingSeats() - 1);
-            batch.setOfflineFilledSeats(batch.getOfflineFilledSeats() + 1);
-
-        } else {
-            throw new IllegalArgumentException("Invalid Mode. Must be ONLINE or OFFLINE.");
-        }
-
-        offeredCourseRepository.save(batch);
-
-        // 4. Update Registration Count
-        Integer count = repository.countByStudentStudentId(student.getStudentId());
-        int newCount = (count == null) ? 1 : count + 1;
-
-        // 5. Create Registration Record
         StudentCourseRegistration registration = new StudentCourseRegistration();
         registration.setStudent(student);
-        registration.setOfferedCourse(batch); // Linked to the Batch!
+
+        // 1. Handle Selection Logic (Course OR OfferedCourse)
+        if (request.getOfferedCourseId() != null) {
+            OfferedCourse batch = offeredCourseRepository.findById(request.getOfferedCourseId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Batch Not Found"));
+
+            // Duplicate check
+            if (repository.existsByStudentStudentIdAndOfferedCourseId(student.getStudentId(), batch.getId())) {
+                throw new IllegalArgumentException("Already Registered For This Batch");
+            }
+
+            // Seat Management
+            processSeatManagement(batch, request.getMode());
+            offeredCourseRepository.save(batch);
+            registration.setOfferedCourse(batch);
+
+        } else if (request.getCourseId() != null) {
+            Course course = courseRepository.findById(request.getCourseId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Course Not Found"));
+
+            registration.setCourse(course);
+        } else {
+            throw new IllegalArgumentException("Please provide either an OfferedCourseId or a CourseId");
+        }
+
+        // 2. Set common fields
         registration.setGender(request.getGender());
         registration.setDob(request.getDob());
         registration.setYear(request.getYear());
@@ -94,16 +83,36 @@ public class StudentCourseRegistrationService {
         registration.setProfileImage(request.getProfileImage());
         registration.setMode(request.getMode());
         registration.setPaymentFor(request.getPaymentFor());
+        // Get the current count from the repository
+        Integer count = repository.countByStudentStudentId(student.getStudentId());
+
+// Standard Java way to handle null
+        int newCount = (count == 0) ? 1 : count + 1;
+
         registration.setRegisteredCoursesCount(newCount);
 
-        StudentCourseRegistration savedRegistration = repository.save(registration);
+        StudentCourseRegistration saved = repository.save(registration);
 
-        // Building the refined, minimal key payload map
+        // 3. Response Construction
         Map<String, String> response = new HashMap<>();
-        response.put("registrationId", savedRegistration.getId().toString());
-        response.put("offeredCourseId", batch.getId().toString());
-        response.put("message", "Course Batch Registered Successfully");
+        response.put("registrationId", saved.getId().toString());
+        response.put("message", "Registration Successful");
         return response;
+    }
+
+    // Helper method to keep main method clean
+    private void processSeatManagement(OfferedCourse batch, String mode) {
+        if ("ONLINE".equalsIgnoreCase(mode)) {
+            if (batch.getOnlineRemainingSeats() <= 0) throw new IllegalStateException("No Online Seats Available");
+            batch.setOnlineRemainingSeats(batch.getOnlineRemainingSeats() - 1);
+            batch.setOnlineFilledSeats(batch.getOnlineFilledSeats() + 1);
+        } else if ("OFFLINE".equalsIgnoreCase(mode)) {
+            if (batch.getOfflineRemainingSeats() <= 0) throw new IllegalStateException("No Offline Seats Available");
+            batch.setOfflineRemainingSeats(batch.getOfflineRemainingSeats() - 1);
+            batch.setOfflineFilledSeats(batch.getOfflineFilledSeats() + 1);
+        } else {
+            throw new IllegalArgumentException("Invalid Mode. Must be ONLINE or OFFLINE.");
+        }
     }
 
     /*

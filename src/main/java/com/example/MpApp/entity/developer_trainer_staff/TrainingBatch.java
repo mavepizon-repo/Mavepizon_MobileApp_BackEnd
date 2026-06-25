@@ -1,5 +1,6 @@
 package com.example.MpApp.entity.developer_trainer_staff;
 
+import com.example.MpApp.entity.course.Course;
 import com.example.MpApp.entity.course.OfferedCourse;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -46,6 +47,11 @@ public class TrainingBatch {
     @JoinColumn(name = "offered_course_id")
     @JsonIgnoreProperties({"registrations", "hibernateLazyInitializer", "handler"})
     private OfferedCourse offeredCourse;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id") // Optional link to general course
+    @JsonIgnoreProperties({"offeredCourses", "hibernateLazyInitializer", "handler"})
+    private Course course;
 
     public TrainingBatch() {
     }
@@ -119,5 +125,13 @@ public class TrainingBatch {
     public void setOfferedCourse(
             OfferedCourse offeredCourse) {
         this.offeredCourse = offeredCourse;
+    }
+
+    public Course getCourse() {
+        return course;
+    }
+
+    public void setCourse(Course course) {
+        this.course = course;
     }
 }

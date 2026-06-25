@@ -284,7 +284,7 @@ public class AdminController {
             @PathVariable Long adminId,
             @RequestBody TrainingBatch batch) {
         try {
-            return ResponseEntity.ok(service.createTrainingBatch(adminId, batch));
+            return ResponseEntity.ok(service.createTrainingBatch(adminId, batch,batch.getCourse().getId(),batch.getOfferedCourse().getId()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

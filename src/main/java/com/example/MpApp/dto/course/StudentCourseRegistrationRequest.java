@@ -5,6 +5,8 @@ import java.time.LocalDate;
 public class StudentCourseRegistrationRequest {
 
     private Long offeredCourseId;
+
+    private Long courseId;
 // Update getters/setters
 
     private String gender;
@@ -86,5 +88,13 @@ public class StudentCourseRegistrationRequest {
 
     public void setPaymentFor(String paymentFor) {
         this.paymentFor = paymentFor;
+    }
+
+    public Long getCourseId() {
+        return courseId;
+    }
+
+    public void setCourseId(Long courseId) {
+        this.courseId = courseId;
     }
 }

@@ -37,6 +37,11 @@ public class StudentCourseRegistration {
     @JoinColumn(name = "offered_course_id", nullable = false)
     private OfferedCourse offeredCourse;
 
+    @JsonIgnoreProperties({"offeredCourses", "hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id", nullable = true) // Changed join column name, nullable = true
+    private Course course;
+
     /*
      ==========================
      REGISTRATION DETAILS
@@ -231,5 +236,13 @@ public class StudentCourseRegistration {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Course getCourse() {
+        return course;
+    }
+
+    public void setCourse(Course course) {
+        this.course = course;
     }
 }

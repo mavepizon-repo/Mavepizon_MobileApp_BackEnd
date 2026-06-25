@@ -119,8 +119,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/certificates/**").hasAnyRole("ADMIN", "TEAM_LEAD", "OFFICE_STAFF", "COLLEGE_STAFF", "STUDENT")
 
                         // ================= COURSE =================
-                        .requestMatchers("/api/course/create", "/api/course/update/**", "/api/course/delete/**").hasRole("TEAM_LEAD")
-                        .requestMatchers("/api/offered-course/create", "/api/offered-course/update/**", "/api/offered-course/delete/**").hasRole("TEAM_LEAD")
+                        .requestMatchers(
+                                "/api/course/create",
+                                "/api/course/update/**",
+                                "/api/course/delete/**"
+                        ).hasAnyRole("ADMIN", "TEAM_LEAD")
+                        .requestMatchers(
+                                "/api/offered-course/create",
+                                "/api/offered-course/update/**",
+                                "/api/offered-course/delete/**"
+                        ).hasAnyRole("ADMIN", "TEAM_LEAD")
                         .requestMatchers("/api/course/get-all", "/api/course/get/**", "/api/offered-course/get-all", "/api/offered-course/get/**")
                         .hasAnyRole("STUDENT", "TEAM_LEAD", "ADMIN", "COLLEGE_STAFF")
 
