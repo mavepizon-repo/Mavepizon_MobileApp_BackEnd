@@ -1,9 +1,7 @@
 package com.example.MpApp.service.officestaff;
 
 import com.example.MpApp.dto.file.FileViewResponse;
-import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
-import com.example.MpApp.dto.officestaff.OfficeStaffProfileResponse;
-import com.example.MpApp.dto.officestaff.PermissionRequestDTO;
+import com.example.MpApp.dto.officestaff.*;
 import com.example.MpApp.entity.officestaff.OfficeStaffLeave;
 import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
 import com.example.MpApp.exception.ResourceNotFoundException;
@@ -13,7 +11,6 @@ import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
 import com.example.MpApp.repository.task.TaskRepository;
 import com.example.MpApp.repository.task.TaskUpdateRepository;
 import com.example.MpApp.config.JwtService;
-import com.example.MpApp.dto.officestaff.OfficeStaffLoginRequest;
 import com.example.MpApp.dto.task.TaskResponse;
 import com.example.MpApp.dto.task.TaskUpdateRequest;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
@@ -43,6 +40,8 @@ public class OfficeStaffService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final OfficeStaffLeaveRepository leaveRepository;
     private final OfficeStaffPermissionRepository permissionRepository;
+
+    private final OfficeStaffAttendanceService attendanceService;
 
     // LOGIN
 
@@ -110,45 +109,17 @@ public class OfficeStaffService {
         return taskRepository.save(task);
     }
 
-    public OfficeStaffProfileResponse getProfile(
-            Long staffId)
-    {
-        OfficeStaff staff =
-                repository.findById(staffId)
-                        .orElseThrow();
+    public OfficeStaffProfileResponse getProfile(Long staffId) {
+        OfficeStaff staff = repository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
 
-        OfficeStaffProfileResponse response =
-                new OfficeStaffProfileResponse();
-
-        response.setId(staff.getId());
-        response.setName(staff.getName());
-        response.setEmail(staff.getEmail());
-        response.setRole(staff.getRole());
+        OfficeStaffProfileResponse response = new OfficeStaffProfileResponse();
+        // ... existing assignments ...
         response.setScore(staff.getScore());
 
-        response.setAssignedTasks(
-                taskRepository.countByStaffId(
-                        staffId));
-
-        response.setCompletedTasks(
-                taskRepository
-                        .countByStaffIdAndStatus(
-                                staffId,
-                                TaskStatus.COMPLETED));
-
-        response.setPendingTasks(
-                taskRepository
-                        .countByStaffIdAndStatus(
-                                staffId,
-                                TaskStatus.PENDING));
-
-        response.setRejectedTasks(
-                taskRepository
-                        .countByStaffIdAndStatus(
-                                staffId,
-                                TaskStatus.REWORK_REQUIRED));
-
-        response.setProfile(staff.getProfilePhoto());
+        // Fetch and set the new aggregated metrics
+        PerformanceSummaryDTO metrics = this.getStaffPerformanceSummary(staffId);
+        response.setPerformanceMetrics(metrics);
 
         return response;
     }
@@ -162,6 +133,25 @@ public class OfficeStaffService {
         leave.setReason(request.getReason());
         leave.setStatus("PENDING");
         return leaveRepository.save(leave);
+    }
+
+    public PerformanceSummaryDTO getStaffPerformanceSummary(Long staffId) {
+        OfficeStaff staff = repository.findById(staffId).orElseThrow();
+
+        long completed = taskRepository.countByStaffIdAndStatus(staffId, TaskStatus.COMPLETED);
+        long pending = taskRepository.countByStaffIdAndStatus(staffId, TaskStatus.PENDING);
+
+        // Calculate dynamic approval rate
+        double approvalRate = taskRepository.calculateApprovalRate(staffId);
+
+        // Use your attendance service to get history and calc percentage
+        double attendancePercent = attendanceService.calculateAttendancePercentage(staffId);
+
+        return new PerformanceSummaryDTO(staff.getName(), staff.getScore(), completed, pending, approvalRate, attendancePercent);
+    }
+
+    public List<OfficeStaff> getLeaderboard() {
+        return repository.findAllByOrderByScoreDesc();
     }
 
     // In OfficeStaffService.java

@@ -93,7 +93,10 @@ public class InternshipService {
     @Transactional
     public Map<String, Object> updateInternship(Long id, Internship details) {
         Internship existing = internshipRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Internship not found for ID: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Internship not found for ID: " + id
+                        ));
 
         existing.setInternshipName(details.getInternshipName());
         existing.setDescription(details.getDescription());
@@ -106,13 +109,19 @@ public class InternshipService {
         existing.setTrainerName(details.getTrainerName());
         existing.setStatus(details.getStatus());
 
-        Internship updated = internshipRepository.save(existing);
+        existing.setTotalSeatsOnline(details.getTotalSeatsOnline());
+        existing.setTotalSeatsOffline(details.getTotalSeatsOffline());
 
+        existing.setAvailableSeatsOnline(details.getTotalSeatsOnline());
+        existing.setAvailableSeatsOffline(details.getTotalSeatsOffline());
+
+        Internship updated = internshipRepository.save(existing);
         Map<String, Object> response = new HashMap<>();
         response.put("status", "UPDATED");
         response.put("message", "Internship records updated successfully.");
         response.put("internshipId", updated.getId());
         response.put("currentStatus", updated.getStatus());
+
         return response;
     }
 

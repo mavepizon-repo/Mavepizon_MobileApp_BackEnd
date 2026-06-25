@@ -179,4 +179,18 @@ public class OfficeStaffAttendanceService {
 
         return EARTH_RADIUS_METERS * c;
     }
+
+    // Inside OfficeStaffAttendanceService.java
+
+    public double calculateAttendancePercentage(Long staffId) {
+        List<OfficeStaffAttendance> history = getStaffAttendanceHistory(staffId);
+        if (history.isEmpty()) return 0.0;
+
+        long totalDays = history.size();
+        long presentDays = history.stream()
+                .filter(a -> "PRESENT".equalsIgnoreCase(a.getStatus())) // Adjust field name if necessary
+                .count();
+
+        return ((double) presentDays / totalDays) * 100;
+    }
 }

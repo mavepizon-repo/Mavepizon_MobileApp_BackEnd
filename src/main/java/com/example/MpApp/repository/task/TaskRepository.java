@@ -6,6 +6,7 @@ import com.example.MpApp.entity.enums.TaskType;
 import com.example.MpApp.entity.task.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -247,4 +248,10 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     long countByStaffIdAndStatus(
             Long staffId,
             TaskStatus status);
+
+    // Inside TaskRepository.java
+    @Query("SELECT CASE WHEN COUNT(t) = 0 THEN 0.0 ELSE " +
+            "(SUM(CASE WHEN r.verificationStatus = 'APPROVED' THEN 1.0 ELSE 0.0 END) / COUNT(r)) " +
+            "END FROM TaskReview r JOIN r.task t WHERE t.staff.id = :staffId")
+    Double calculateApprovalRate(@Param("staffId") Long staffId);
 }

@@ -1,7 +1,9 @@
 package com.example.MpApp.controller.officestaff;
 
+import com.example.MpApp.dto.common.ForgotPasswordRequest;
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.officestaff.*;
+import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.officestaff.OfficeStaffAttendance;
 import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
 import com.example.MpApp.service.officestaff.OfficeStaffAttendanceService;
@@ -119,14 +121,22 @@ public class OfficeStaffController {
 
     @PostMapping("/forgot-password/reset")
     public ResponseEntity<?> resetPassword(
-            @RequestParam String email,
-            @RequestParam String otp,
-            @RequestParam String newPassword) {
-        return ResponseEntity.ok(service.resetPassword(email, otp, newPassword));
+            @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(service.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword()));
     }
 
     @GetMapping("/files/{id}")
     public ResponseEntity<FileViewResponse> getStaffFiles(@PathVariable Long id) {
         return ResponseEntity.ok(service.getStaffFiles(id));
+    }
+
+    @GetMapping("/{staffId}/performance-summary")
+    public ResponseEntity<PerformanceSummaryDTO> getPerformanceSummary(@PathVariable Long staffId) {
+        return ResponseEntity.ok(service.getStaffPerformanceSummary(staffId));
+    }
+
+    @GetMapping("/leaderboard")
+    public ResponseEntity<List<OfficeStaff>> getLeaderboard() {
+        return ResponseEntity.ok(service.getLeaderboard());
     }
 }

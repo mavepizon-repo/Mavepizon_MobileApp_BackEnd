@@ -17,4 +17,6 @@ public interface OfficeStaffRepository
     long countByBranchAndCategory(
             String branch,
             StaffCategory category);
+
+    List<OfficeStaff> findAllByOrderByScoreDesc();
 }
