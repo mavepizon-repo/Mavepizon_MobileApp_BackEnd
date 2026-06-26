@@ -1,5 +1,9 @@
 package com.example.MpApp.service.admin;
 
+import com.example.MpApp.dto.task.TaskRequest;
+import com.example.MpApp.dto.task.TaskResponse;
+import com.example.MpApp.dto.task.TaskReviewRequest;
+import com.example.MpApp.dto.task.TaskUpdateRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
@@ -8,8 +12,13 @@ import com.example.MpApp.entity.course.OfferedCourse;
 import com.example.MpApp.entity.developer_trainer_staff.BatchStudents;
 import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.enums.StaffCategory;
+import com.example.MpApp.entity.enums.TaskStatus;
+import com.example.MpApp.entity.enums.VerificationStatus;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.student.Student;
+import com.example.MpApp.entity.task.Task;
+import com.example.MpApp.entity.task.TaskReview;
+import com.example.MpApp.entity.task.TaskUpdate;
 import com.example.MpApp.entity.teamlead.TeamLead;
 import com.example.MpApp.entity.teamlead.TeamLeadLeave;
 import com.example.MpApp.entity.teamlead.TeamLeadPermission;
@@ -25,6 +34,9 @@ import com.example.MpApp.repository.course.OfferedCourseRepository;
 import com.example.MpApp.repository.developer_trainer.BatchStudentRepository;
 import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
 import com.example.MpApp.repository.student.StudentRepository;
+import com.example.MpApp.repository.task.TaskRepository;
+import com.example.MpApp.repository.task.TaskReviewRepository;
+import com.example.MpApp.repository.task.TaskUpdateRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadLeaveRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadPermissionRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadRepository;
@@ -49,6 +61,9 @@ public class AdminService {
 
     private final AdminRepository adminRepository;
     private final TeamLeadRepository teamLeadRepository;
+    private final TaskRepository taskRepository;
+    private final TaskUpdateRepository taskUpdateRepository;
+    private final TaskReviewRepository taskReviewRepository;
     private final OfficeStaffRepository officeStaffRepository;
     private final CollegeStaffRepository collegeStaffRepository;
     private final StudentRepository studentRepository;
@@ -339,6 +354,117 @@ public class AdminService {
             throw new ResourceNotFoundException("Cannot delete. Office Staff instance missing for ID: " + id);
         }
         officeStaffRepository.deleteById(id);
+    }
+
+    @Transactional
+    public Map<String, String> assignTaskByAdmin(Long adminId, TaskRequest request) {
+        // Verify admin exists
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found for ID: " + adminId));
+
+        // Retrieve the target staff
+        OfficeStaff staff = officeStaffRepository.findById(request.getStaffId())
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + request.getStaffId()));
+
+        // Create and save the task
+        Task task = new Task();
+        task.setTitle(request.getTitle());
+        task.setDescription(request.getDescription());
+        task.setAssignedDate(java.time.LocalDate.now());
+        task.setDeadline(request.getDeadline());
+        task.setTaskType(request.getTaskType());
+        task.setPriority(request.getPriority());
+        task.setEstimatedHours(request.getEstimatedHours());
+        task.setRemarks(request.getRemarks());
+        task.setStatus(com.example.MpApp.entity.enums.TaskStatus.ASSIGNED);
+        task.setProgress(0);
+        task.setStaff(staff);
+        // Admin assignment: teamLead can be null or set to a default value depending on your business logic
+        task.setTeamLead(null);
+
+        Task savedTask = taskRepository.save(task);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("taskId", savedTask.getId().toString());
+        response.put("message", "Task Assigned Successfully by Admin");
+        return response;
+    }
+
+    // ================= TASK MANAGEMENT (ADMIN) =================
+
+    public List<TaskResponse> getAllTasks() {
+        return taskRepository.findAllTasks();
+    }
+
+    public TaskResponse getTaskById(Long taskId) {
+        return taskRepository.findTaskById(taskId);
+    }
+
+    public List<TaskResponse> getTasksByStaff(Long staffId) {
+        return taskRepository.findTasksByStaff(staffId);
+    }
+
+    public List<TaskResponse> getTasksByStatus(TaskStatus status) {
+        return taskRepository.findTasksByStatus(status);
+    }
+
+    @Transactional
+    public void deleteTaskByAdmin(Long taskId) {
+        if (!taskRepository.existsById(taskId)) {
+            throw new ResourceNotFoundException("Task not found for ID: " + taskId);
+        }
+        taskRepository.deleteById(taskId);
+    }
+
+    @Transactional
+    public Map<String, String> updateTaskByAdmin(Long taskId, TaskUpdateRequest request) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found for ID: " + taskId));
+
+        TaskUpdate update = new TaskUpdate();
+        update.setTask(task);
+        update.setProgressPercentage(request.getProgressPercentage());
+        update.setWorkDoneToday(request.getWorkDoneToday());
+        update.setBlockers(request.getBlockers());
+        update.setComments(request.getComments());
+        update.setAttachmentUrl(request.getAttachmentUrl());
+        update.setStatus(request.getStatus());
+        update.setUpdatedAt(java.time.LocalDateTime.now());
+
+        taskUpdateRepository.save(update);
+
+        task.setProgress(request.getProgressPercentage());
+        task.setStatus(request.getStatus());
+        taskRepository.save(task);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("taskId", taskId.toString());
+        response.put("message", "Task Updated Successfully by Admin");
+        return response;
+    }
+
+    @Transactional
+    public Map<String, String> reviewTaskByAdmin(Long taskId, Long adminId, TaskReviewRequest request) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found for ID: " + taskId));
+
+        // Admin doesn't necessarily have a TeamLead entity, so adjust review logic if needed
+        // Assuming you want the admin to review it similar to a Team Lead
+        TaskReview review = new TaskReview();
+        review.setTask(task);
+        // If your TaskReview requires a TeamLead, you may need to update your entity
+        // to support Admin reviews or just leave it null/generic
+        review.setVerificationStatus(request.getVerificationStatus());
+        review.setReviewComment(request.getReviewComment());
+        review.setReviewedAt(java.time.LocalDateTime.now());
+
+        task.setStatus(request.getVerificationStatus() == VerificationStatus.APPROVED ?
+                TaskStatus.COMPLETED : TaskStatus.REWORK_REQUIRED);
+
+        taskRepository.save(task);
+        taskReviewRepository.save(review);
+
+        return Map.of("message", "Task Reviewed by Admin successfully");
     }
 
     // ================= COLLEGE STAFF MANAGEMENT (UPDATED) =================

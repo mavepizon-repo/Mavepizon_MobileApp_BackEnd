@@ -1,5 +1,8 @@
 package com.example.MpApp.controller.admin;
 
+import com.example.MpApp.dto.task.TaskRequest;
+import com.example.MpApp.dto.task.TaskReviewRequest;
+import com.example.MpApp.dto.task.TaskUpdateRequest;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
 import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
@@ -252,6 +255,49 @@ public class AdminController {
     public ResponseEntity<String> markHoliday(
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate holidayDate) {
         return ResponseEntity.ok(attendanceService.markHolidayOD(holidayDate));
+    }
+    //=============== TASK MANAGEMENT ===================
+
+    @PostMapping("/{adminId}/assign-task")
+    public ResponseEntity<?> assignTask(@PathVariable Long adminId,
+                                        @RequestBody TaskRequest request) {
+        return ResponseEntity.ok(service.assignTaskByAdmin(adminId, request));
+    }
+
+    @GetMapping("/tasks")
+    public ResponseEntity<?> getAllTasks(@RequestHeader("Authorization") String auth) {
+        service.validateAdminToken(auth);
+        return ResponseEntity.ok(service.getAllTasks());
+    }
+
+    @GetMapping("/tasks/{taskId}")
+    public ResponseEntity<?> getTaskById(@RequestHeader("Authorization") String auth, @PathVariable Long taskId) {
+        service.validateAdminToken(auth);
+        return ResponseEntity.ok(service.getTaskById(taskId));
+    }
+
+    @PutMapping("/tasks/{taskId}")
+    public ResponseEntity<?> updateTask(@RequestHeader("Authorization") String auth,
+                                        @PathVariable Long taskId,
+                                        @RequestBody TaskUpdateRequest request) {
+        service.validateAdminToken(auth);
+        return ResponseEntity.ok(service.updateTaskByAdmin(taskId, request));
+    }
+
+    @DeleteMapping("/tasks/{taskId}")
+    public ResponseEntity<?> deleteTask(@RequestHeader("Authorization") String auth, @PathVariable Long taskId) {
+        service.validateAdminToken(auth);
+        service.deleteTaskByAdmin(taskId);
+        return ResponseEntity.ok("Task deleted successfully");
+    }
+
+    @PostMapping("/tasks/{taskId}/review")
+    public ResponseEntity<?> reviewTask(@RequestHeader("Authorization") String auth,
+                                        @PathVariable Long taskId,
+                                        @RequestParam Long adminId,
+                                        @RequestBody TaskReviewRequest request) {
+        service.validateAdminToken(auth);
+        return ResponseEntity.ok(service.reviewTaskByAdmin(taskId, adminId, request));
     }
 
     // ================= FORGOT & RESET PASSWORD =================
