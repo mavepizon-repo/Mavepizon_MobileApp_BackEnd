@@ -1,5 +1,6 @@
 package com.example.MpApp.controller.admin;
 
+import com.example.MpApp.dto.task.TaskAdminUpdateRequest;
 import com.example.MpApp.dto.task.TaskRequest;
 import com.example.MpApp.dto.task.TaskReviewRequest;
 import com.example.MpApp.dto.task.TaskUpdateRequest;
@@ -179,6 +180,16 @@ public class AdminController {
         return ResponseEntity.ok("Deleted");
     }
 
+    @GetMapping("/staff/pending-approvals")
+    public ResponseEntity<?> getPendingStaff() {
+        return ResponseEntity.ok(service.getPendingStaffRegistrations());
+    }
+
+    @PatchMapping("/staff/{staffId}/approve")
+    public ResponseEntity<?> approveStaff(@PathVariable Long staffId) {
+        return ResponseEntity.ok(service.approveStaffRegistration(staffId));
+    }
+
     // ================= STUDENTS (NEW) =================
 
     @GetMapping("/students")
@@ -279,9 +290,9 @@ public class AdminController {
     @PutMapping("/tasks/{taskId}")
     public ResponseEntity<?> updateTask(@RequestHeader("Authorization") String auth,
                                         @PathVariable Long taskId,
-                                        @RequestBody TaskUpdateRequest request) {
+                                        @RequestBody TaskAdminUpdateRequest request) {
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.updateTaskByAdmin(taskId, request));
+        return ResponseEntity.ok(service.updateTaskAdmin(taskId, request));
     }
 
     @DeleteMapping("/tasks/{taskId}")

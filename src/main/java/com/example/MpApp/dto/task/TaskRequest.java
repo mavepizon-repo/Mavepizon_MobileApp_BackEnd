@@ -9,6 +9,8 @@ public class TaskRequest {
 
     private Long staffId;
 
+    private Long teamLeadId;
+
     private String title;
 
     private String description;
@@ -25,7 +27,13 @@ public class TaskRequest {
 
     public TaskRequest() {
     }
+    public Long getTeamLeadId() {
+        return teamLeadId;
+    }
 
+    public void setTeamLeadId(Long teamLeadId) {
+        this.teamLeadId = teamLeadId;
+    }
     public Long getStaffId() {
         return staffId;
     }

@@ -2,10 +2,7 @@
 
     import com.example.MpApp.dto.common.ForgotPasswordRequest;
     import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
-    import com.example.MpApp.dto.task.TaskRequest;
-    import com.example.MpApp.dto.task.TaskResponse;
-    import com.example.MpApp.dto.task.TaskReviewRequest;
-    import com.example.MpApp.dto.task.TaskUpdateRequest;
+    import com.example.MpApp.dto.task.*;
     import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
     import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
     import com.example.MpApp.entity.collegestaff.CollegeStaff;
@@ -78,6 +75,11 @@
             return ResponseEntity.ok(service.getAllStaff(teamLeadId));
         }
 
+        @GetMapping("/{teamLeadId}/staff/{staffId}")
+        public ResponseEntity<OfficeStaff> getStaffById(@PathVariable Long teamLeadId, @PathVariable Long staffId) {
+            return ResponseEntity.ok(service.getStaffById(teamLeadId, staffId));
+        }
+
         @DeleteMapping("/staff/{staffId}")
         public ResponseEntity<?> deleteStaff(@PathVariable Long staffId) {
             service.deleteStaff(staffId);
@@ -97,8 +99,8 @@
         @PutMapping("/task/{taskId}")
         public ResponseEntity<?> updateTask(
                 @PathVariable Long taskId,
-                @RequestBody TaskUpdateRequest request) {
-            return ResponseEntity.ok(service.updateTask(taskId, request));
+                @RequestBody TaskAdminUpdateRequest request) { // ✅ Updated to specialized administrative DTO
+            return ResponseEntity.ok(service.updateTaskAdmin(taskId, request));
         }
 
         @DeleteMapping("/task/{taskId}")
@@ -402,5 +404,16 @@
                 // Catches any missing resources or validation errors and returns a clean 400 response
                 return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
             }
+        }
+
+        @PatchMapping("/change-password")
+        public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request) {
+            return ResponseEntity.ok(Map.of("message",
+                    service.changePassword(
+                            request.get("email"),
+                            request.get("oldPassword"),
+                            request.get("newPassword")
+                    )
+            ));
         }
     }

@@ -1,9 +1,6 @@
 package com.example.MpApp.service.admin;
 
-import com.example.MpApp.dto.task.TaskRequest;
-import com.example.MpApp.dto.task.TaskResponse;
-import com.example.MpApp.dto.task.TaskReviewRequest;
-import com.example.MpApp.dto.task.TaskUpdateRequest;
+import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
@@ -362,12 +359,24 @@ public class AdminService {
         adminRepository.findById(adminId)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found for ID: " + adminId));
 
-        // Retrieve the target staff
-        OfficeStaff staff = officeStaffRepository.findById(request.getStaffId())
-                .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + request.getStaffId()));
-
         // Create and save the task
         Task task = new Task();
+
+        if (request.getStaffId() != null) {
+            OfficeStaff staff = officeStaffRepository.findById(request.getStaffId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
+            task.setStaff(staff);
+            task.setTeamLead(null); // Ensure mutual exclusivity
+        } else if (request.getTeamLeadId() != null) {
+            TeamLead lead = teamLeadRepository.findById(request.getTeamLeadId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found"));
+            task.setTeamLead(lead);
+            task.setStaff(null); // Ensure mutual exclusivity
+        } else {
+            throw new IllegalArgumentException("Must provide either Staff ID or Team Lead ID.");
+        }
+
+
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setAssignedDate(java.time.LocalDate.now());
@@ -378,9 +387,6 @@ public class AdminService {
         task.setRemarks(request.getRemarks());
         task.setStatus(com.example.MpApp.entity.enums.TaskStatus.ASSIGNED);
         task.setProgress(0);
-        task.setStaff(staff);
-        // Admin assignment: teamLead can be null or set to a default value depending on your business logic
-        task.setTeamLead(null);
 
         Task savedTask = taskRepository.save(task);
 
@@ -417,29 +423,25 @@ public class AdminService {
     }
 
     @Transactional
-    public Map<String, String> updateTaskByAdmin(Long taskId, TaskUpdateRequest request) {
+    public Map<String, String> updateTaskAdmin(Long taskId, TaskAdminUpdateRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found for ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Target task context not found for ID: " + taskId));
 
-        TaskUpdate update = new TaskUpdate();
-        update.setTask(task);
-        update.setProgressPercentage(request.getProgressPercentage());
-        update.setWorkDoneToday(request.getWorkDoneToday());
-        update.setBlockers(request.getBlockers());
-        update.setComments(request.getComments());
-        update.setAttachmentUrl(request.getAttachmentUrl());
-        update.setStatus(request.getStatus());
-        update.setUpdatedAt(java.time.LocalDateTime.now());
+        // Dynamically overwrite configurations if present in the update payload
+        if (request.getTitle() != null) task.setTitle(request.getTitle());
+        if (request.getDescription() != null) task.setDescription(request.getDescription());
+        if (request.getPriority() != null) task.setPriority(request.getPriority());
+        if (request.getDeadline() != null) task.setDeadline(request.getDeadline());
+        if (request.getStatus() != null) task.setStatus(request.getStatus());
+        if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
+        if (request.getRemarks() != null) task.setRemarks(request.getRemarks());
+        if (request.getCompletionRemarks() != null) task.setCompletionRemarks(request.getCompletionRemarks());
+        if (request.getTaskType() != null) task.setTaskType(request.getTaskType());
 
-        taskUpdateRepository.save(update);
-
-        task.setProgress(request.getProgressPercentage());
-        task.setStatus(request.getStatus());
         taskRepository.save(task);
 
         Map<String, String> response = new HashMap<>();
-        response.put("taskId", taskId.toString());
-        response.put("message", "Task Updated Successfully by Admin");
+        response.put("message", "All structural task metadata fields updated successfully.");
         return response;
     }
 
@@ -516,6 +518,21 @@ public class AdminService {
     public CollegeStaff getCollegeStaffById(Long id) {
         return collegeStaffRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("College Staff workspace metadata not found for ID: " + id));
+    }
+
+    @Transactional
+    public Map<String, String> approveStaffRegistration(Long staffId) {
+        OfficeStaff staff = officeStaffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
+
+        staff.setApprovalStatus("APPROVED");
+        officeStaffRepository.save(staff);
+
+        return Map.of("message", "Staff account approved. They can now login.");
+    }
+
+    public List<OfficeStaff> getPendingStaffRegistrations() {
+        return officeStaffRepository.findByApprovalStatus("PENDING");
     }
 
     public void deleteCollegeStaff(Long id) {

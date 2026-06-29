@@ -11,7 +11,8 @@ import java.util.List;
 public interface CertificateRepository extends JpaRepository<Certificate, Long> {
 
     @Query("SELECT new com.example.MpApp.dto.certificate.CertificateDTO(" +
-            "c.id, s.id, s.name, s.studentId, c.recordType, tb.batchName, c.status, c.fileUrl, c.issueDate) " +
+            "c.id, s.id, s.name, s.studentId, c.recordType, tb.batchName, " +
+            "c.status, c.fileUrl, c.issueDate, s.collegeName, s.department) " + // Added 2 fields
             "FROM Certificate c " +
             "JOIN c.student s " +
             "LEFT JOIN c.trainingBatch tb " +
@@ -33,4 +34,14 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
             "LEFT JOIN c.trainingBatch tb " +
             "WHERE tb.id = :batchId")
     List<CertificateDTO> findByTrainingBatchIdFlat(@Param("batchId") Long batchId);
+
+    // Inside CertificateRepository.java
+
+    @Query("SELECT new com.example.MpApp.dto.certificate.CertificateDTO(" +
+            "c.id, s.id, s.name, s.studentId, c.recordType, tb.batchName, " +
+            "c.status, c.fileUrl, c.issueDate, s.collegeName, s.department) " +
+            "FROM Certificate c " +
+            "JOIN c.student s " +
+            "LEFT JOIN c.trainingBatch tb")
+    List<CertificateDTO> findAllCertificatesFlat();
 }

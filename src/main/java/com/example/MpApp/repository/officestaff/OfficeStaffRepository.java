@@ -19,4 +19,6 @@ public interface OfficeStaffRepository
             StaffCategory category);
 
     List<OfficeStaff> findAllByOrderByScoreDesc();
+
+    List<OfficeStaff> findByApprovalStatus(String status);
 }

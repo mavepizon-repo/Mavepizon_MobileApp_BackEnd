@@ -1,10 +1,7 @@
 package com.example.MpApp.service.teamlead;
 
 import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
-import com.example.MpApp.dto.task.TaskRequest;
-import com.example.MpApp.dto.task.TaskResponse;
-import com.example.MpApp.dto.task.TaskReviewRequest;
-import com.example.MpApp.dto.task.TaskUpdateRequest;
+import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
@@ -47,6 +44,7 @@ import com.example.MpApp.repository.student.StudentRepository;
 
 import com.example.MpApp.service.CloudinaryService;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -125,6 +123,7 @@ public class TeamLeadService {
 
         Map<String, String> response = new HashMap<>();
         response.put("teamLeadId", teamLead.getId().toString());
+        response.put("name", teamLead.getName());
         response.put("email", teamLead.getEmail());
         response.put("token", token);
         response.put("message", "Login Successful");
@@ -184,6 +183,7 @@ public class TeamLeadService {
 
         Map<String, String> response = new HashMap<>();
         response.put("staffId", savedStaff.getId().toString());
+        response.put("systemId", savedStaff.getStaffId());
         response.put("message", "Office Staff Created Successfully");
         return response;
     }
@@ -244,30 +244,27 @@ public class TeamLeadService {
 
     // ---------------- TASK MANAGEMENT (UPDATED) ----------------
 
+
     @Transactional
-    public Map<String, String> updateTask(Long taskId, TaskUpdateRequest request) {
+    public Map<String, String> updateTaskAdmin(Long taskId, TaskAdminUpdateRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found for ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Target task context not found for ID: " + taskId));
 
-        TaskUpdate update = new TaskUpdate();
-        update.setTask(task);
-        update.setProgressPercentage(request.getProgressPercentage());
-        update.setWorkDoneToday(request.getWorkDoneToday());
-        update.setBlockers(request.getBlockers());
-        update.setComments(request.getComments());
-        update.setAttachmentUrl(request.getAttachmentUrl());
-        update.setStatus(request.getStatus());
-        update.setUpdatedAt(LocalDateTime.now());
+        // Dynamically overwrite configurations if present in the update payload
+        if (request.getTitle() != null) task.setTitle(request.getTitle());
+        if (request.getDescription() != null) task.setDescription(request.getDescription());
+        if (request.getPriority() != null) task.setPriority(request.getPriority());
+        if (request.getDeadline() != null) task.setDeadline(request.getDeadline());
+        if (request.getStatus() != null) task.setStatus(request.getStatus());
+        if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
+        if (request.getRemarks() != null) task.setRemarks(request.getRemarks());
+        if (request.getCompletionRemarks() != null) task.setCompletionRemarks(request.getCompletionRemarks());
+        if (request.getTaskType() != null) task.setTaskType(request.getTaskType());
 
-        taskUpdateRepository.save(update);
-
-        task.setProgress(request.getProgressPercentage());
-        task.setStatus(request.getStatus());
         taskRepository.save(task);
 
         Map<String, String> response = new HashMap<>();
-        response.put("taskId", taskId.toString());
-        response.put("message", "Task Updated Successfully");
+        response.put("message", "All structural task metadata fields updated successfully.");
         return response;
     }
 
@@ -679,9 +676,30 @@ public class TeamLeadService {
         return "Password Reset Successful";
     }
 
+    public String changePassword(String email, String oldPassword, String newPassword) {
+        // 1. Find the Team Lead
+        TeamLead teamLead = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email: " + email));
+
+        // 2. Verify the old password
+        if (!passwordEncoder.matches(oldPassword, teamLead.getPassword())) {
+            throw new InvalidCredentialsException("Invalid Old Password");
+        }
+
+        // 3. Encrypt and set the new password
+        teamLead.setPassword(passwordEncoder.encode(newPassword));
+        repository.save(teamLead);
+
+        return "Password Changed Successfully";
+    }
+
+    @Transactional
     public Map<String, String> changeStaffStatus(Long staffId, boolean active) {
-        // Implementation can check or update fields like a status flag or account locks
-        return Map.of("message", "Staff account state updated dynamically to " + (active ? "ACTIVE" : "INACTIVE"));
+        OfficeStaff staff = officeStaffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
+        staff.setActive(active);
+        officeStaffRepository.save(staff);
+        return Map.of("message", "Staff account state updated to " + (active ? "ACTIVE" : "INACTIVE"));
     }
 
     // ================= TRAINING BATCH CREATION (TEAM LEAD) =================
@@ -836,5 +854,15 @@ public class TeamLeadService {
                 "skippedDuplicates", String.valueOf(skippedDuplicates),
                 "batchName", batch.getBatchName()
         );
+    }
+
+    public OfficeStaff getStaffById(Long teamLeadId, Long staffId) {
+        // 1. Verify Team Lead exists
+        repository.findById(teamLeadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+
+        // 2. Fetch and return the staff member
+        return officeStaffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + staffId));
     }
 }

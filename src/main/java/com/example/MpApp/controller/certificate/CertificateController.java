@@ -67,6 +67,32 @@ public class CertificateController {
      STUDENT ENDPOINTS
      =================================================
      */
+    @PutMapping("/status/{id}")
+    public ResponseEntity<?> updateStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+        try {
+            return ResponseEntity.ok(service.updateCertificateStatus(id, status));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
+    // Inside CertificateController.java
+
+    @GetMapping("/all")
+    public ResponseEntity<List<CertificateDTO>> getAllCertificates() {
+        return ResponseEntity.ok(service.getAllCertificates());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteCertificate(@PathVariable Long id) {
+        try {
+            service.deleteCertificate(id);
+            return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
 }

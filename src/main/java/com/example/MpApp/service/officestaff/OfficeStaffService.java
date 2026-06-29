@@ -48,9 +48,15 @@ public class OfficeStaffService {
 
     public Map<String, String> loginOfficeStaff(OfficeStaffLoginRequest request) {
 
+        // Inside OfficeStaffService.java (Login method)
         OfficeStaff staff = repository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
 
+        if (!"APPROVED".equals(staff.getApprovalStatus())) {
+            throw new IllegalStateException("Your account is pending Admin approval. Please wait.");
+        }
+
+// Proceed with token generation if approved...
         if (!passwordEncoder.matches(request.getPassword(), staff.getPassword())) {
             return Map.of("message", "Invalid Password");
         }

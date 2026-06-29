@@ -11,13 +11,10 @@ public class TaskResponse {
     private Long taskId;
     private String title;
     private String description;
-
     private LocalDate assignedDate;
     private LocalDate deadline;
-
     private Integer progress;
     private Integer estimatedHours;
-
     private TaskStatus status;
     private Priority priority;
     private TaskType taskType;
@@ -25,9 +22,11 @@ public class TaskResponse {
     private Long staffId;
     private String staffName;
     private String staffRole;
+    private String staffIdCode; // Represents the alphanumeric ID (e.g., MPCBTDE001)
 
     private Long teamLeadId;
     private String teamLeadName;
+    private String teamLeadIdCode; // Represents the alphanumeric TL ID
 
     public TaskResponse(
             Long taskId,
@@ -43,8 +42,10 @@ public class TaskResponse {
             Long staffId,
             String staffName,
             String staffRole,
+            String staffIdCode,
             Long teamLeadId,
-            String teamLeadName
+            String teamLeadName,
+            String teamLeadIdCode
     ) {
         this.taskId = taskId;
         this.title = title;
@@ -59,10 +60,13 @@ public class TaskResponse {
         this.staffId = staffId;
         this.staffName = staffName;
         this.staffRole = staffRole;
+        this.staffIdCode = staffIdCode;
         this.teamLeadId = teamLeadId;
         this.teamLeadName = teamLeadName;
+        this.teamLeadIdCode = teamLeadIdCode;
     }
 
+    // Getters
     public Long getTaskId() { return taskId; }
     public String getTitle() { return title; }
     public String getDescription() { return description; }
@@ -76,6 +80,8 @@ public class TaskResponse {
     public Long getStaffId() { return staffId; }
     public String getStaffName() { return staffName; }
     public String getStaffRole() { return staffRole; }
+    public String getStaffIdCode() { return staffIdCode; }
     public Long getTeamLeadId() { return teamLeadId; }
     public String getTeamLeadName() { return teamLeadName; }
+    public String getTeamLeadIdCode() { return teamLeadIdCode; }
 }

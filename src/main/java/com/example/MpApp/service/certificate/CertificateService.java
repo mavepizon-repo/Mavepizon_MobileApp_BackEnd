@@ -66,6 +66,12 @@ public class CertificateService {
         );
     }
 
+    // Inside CertificateService.java
+
+    public List<CertificateDTO> getAllCertificates() {
+        return certificateRepository.findAllCertificatesFlat();
+    }
+
     // ================= 2. UPLOAD FILE (For Admins/Designers) =================
     @Transactional
     public Map<String, String> uploadCertificateFile(Long certificateId, MultipartFile file) {
@@ -108,5 +114,24 @@ public class CertificateService {
 
     public List<CertificateDTO> getStudentCertificates(Long studentId) {
         return certificateRepository.findByStudentIdFlat(studentId);
+    }
+
+    @Transactional
+    public Map<String, String> updateCertificateStatus(Long id, String status) {
+        Certificate cert = certificateRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Certificate record not found"));
+
+        cert.setStatus(status);
+        certificateRepository.save(cert);
+
+        return Map.of("message", "Certificate status updated to " + status);
+    }
+
+    @Transactional
+    public void deleteCertificate(Long id) {
+        if (!certificateRepository.existsById(id)) {
+            throw new RuntimeException("Certificate record not found for ID: " + id);
+        }
+        certificateRepository.deleteById(id);
     }
 }

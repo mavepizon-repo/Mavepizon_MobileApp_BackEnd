@@ -28,7 +28,8 @@
         private String degree;
     
         private Integer yearPassedOut;
-    
+        // Inside OfficeStaff.java
+        private String approvalStatus = "PENDING"; // Values: PENDING, APPROVED, REJECTED
         private String mobileNumber;
         private String email;
         private String password;
@@ -44,6 +45,7 @@
         private String bloodGroup; // New
         private String branchName; // New
         private String experienceCertificate;
+        private boolean active;
     
         @Enumerated(EnumType.STRING)
         private StaffCategory category;
@@ -256,4 +258,21 @@
             this.experienceCertificate = experienceCertificate;
         }
         // Generate Getters and Setters
+
+
+        public boolean isActive() {
+            return active;
+        }
+
+        public void setActive(boolean active) {
+            this.active = active;
+        }
+
+        public String getApprovalStatus() {
+            return approvalStatus;
+        }
+
+        public void setApprovalStatus(String approvalStatus) {
+            this.approvalStatus = approvalStatus;
+        }
     }

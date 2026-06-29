@@ -70,10 +70,10 @@ public class InternshipController {
     // ================= CONTROLLER ENDPOINTS =================
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createInternship(
+    public ResponseEntity<?> createInternship(
             @RequestHeader("Authorization") String authHeader,
-            @RequestParam("location") String location,
-            @RequestBody Internship internship) {
+            @RequestBody Internship internship,
+            @RequestParam(value = "location", required = false, defaultValue = "ONLINE") String location) {
 
         String creatorRole = validateAdminOrTeamLead(authHeader);
         return ResponseEntity.ok(internshipService.createInternship(internship, creatorRole));

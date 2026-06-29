@@ -98,7 +98,7 @@ public class CourseController {
     GET BY ID / CODE
     ===================================
     */
-    @GetMapping("/get/{courseCode}")
+    @GetMapping("/get/code/{courseCode}")
     public ResponseEntity<?> getCourseByCourseCode(@PathVariable String courseCode) {
         return ResponseEntity.ok(service.getCourseByCourseCode(courseCode));
     }
