@@ -46,4 +46,6 @@ public interface OfficeStaffPermissionRepository extends JpaRepository<OfficeSta
             "AND p.status = :status " +
             "ORDER BY p.permissionDate DESC")
     List<OfficeStaffPermission> findByBranchAndStatus(@Param("branch") String branch, @Param("status") String status);
+
+    void deleteByStaffId(Long staffId);
 }

@@ -158,7 +158,9 @@ public class AdminService {
 
         Map<String, String> response = new HashMap<>();
         response.put("adminId", admin.getId().toString());
+        response.put("userName", admin.getUserName());
         response.put("email", admin.getEmail());
+        response.put("profile", admin.getProfile());
         response.put("token", token);
         response.put("message", "Login successful");
         return response;

@@ -2,7 +2,9 @@ package com.example.MpApp.repository.developer_trainer;
 
 import com.example.MpApp.dto.developer_trainer_staff.BatchDTO;
 import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -19,4 +21,13 @@ public interface TrainingBatchRepository extends JpaRepository<TrainingBatch, Lo
             "JOIN b.trainer t " +
             "WHERE t.id = :trainerId")
     List<BatchDTO> findByTrainerIdWithDetails(@Param("trainerId") Long trainerId);
+
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE TrainingBatch b
+        SET b.trainer = null
+        WHERE b.trainer.id = :trainerId
+    """)
+    void clearTrainer(@Param("trainerId") Long trainerId);
 }

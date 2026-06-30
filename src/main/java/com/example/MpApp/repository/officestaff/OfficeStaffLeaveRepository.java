@@ -12,4 +12,6 @@ public interface OfficeStaffLeaveRepository extends JpaRepository<OfficeStaffLea
     // Forces an INNER JOIN to fetch the staff details alongside the leave records in 1 query
     @Query("SELECT l FROM OfficeStaffLeave l JOIN FETCH l.staff WHERE l.staff.id = :staffId")
     List<OfficeStaffLeave> findByStaffIdWithStaff(@Param("staffId") Long staffId);
+
+    void deleteByStaffId(Long staffId);
 }

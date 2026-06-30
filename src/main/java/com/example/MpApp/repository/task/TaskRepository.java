@@ -135,4 +135,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             "(SUM(CASE WHEN r.verificationStatus = 'APPROVED' THEN 1.0 ELSE 0.0 END) / COUNT(r)) " +
             "END FROM TaskReview r JOIN r.task t WHERE t.staff.id = :staffId")
     Double calculateApprovalRate(@Param("staffId") Long staffId);
+
+    void deleteByStaffId(Long staffId);
 }

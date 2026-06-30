@@ -236,10 +236,24 @@ public class TeamLeadService {
 
     @Transactional
     public void deleteStaff(Long staffId) {
-        if (!officeStaffRepository.existsById(staffId)) {
-            throw new ResourceNotFoundException("Office Staff not found for ID: " + staffId);
-        }
-        officeStaffRepository.deleteById(staffId);
+
+        OfficeStaff staff = officeStaffRepository.findById(staffId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Staff not found"));
+
+        // Delete permissions
+        permissionRepository.deleteByStaffId(staffId);
+
+        // Delete leave requests
+        officeStaffLeaveRepository.deleteByStaffId(staffId);
+        // Delete tasks
+        taskRepository.deleteByStaffId(staffId);
+
+        // Remove trainer from batches
+        batchRepository.clearTrainer(staffId);
+
+        // Finally delete staff
+        officeStaffRepository.delete(staff);
     }
 
     // ---------------- TASK MANAGEMENT (UPDATED) ----------------
