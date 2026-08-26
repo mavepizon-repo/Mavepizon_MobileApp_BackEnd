@@ -49,7 +49,20 @@ public class OfficeStaffService {
     private final OfficeStaffAttendanceService attendanceService;
     private final EmailService emailService;
 
-    // LOGIN
+
+
+    public String extractEmail(String authHeader){
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
+        return email;
+    }
 
 
     public Map<String, String> loginOfficeStaff(OfficeStaffLoginRequest request) {
@@ -83,11 +96,23 @@ public class OfficeStaffService {
     }
 
     // TASKS
-    public List<TaskResponse> getMyTasks(Long staffId) {
-        return taskRepository.findTasksByStaff(staffId);
+    public List<TaskResponse> getMyTasks(String authHeader) {
+        String email = extractEmail(authHeader);
+
+        OfficeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found for email: " + email));
+
+        return taskRepository.findTasksByStaff(staff.getId());
     }
 
-    public Task updateProgress(Long taskId, TaskUpdateRequest request) {
+    public Task updateProgress(Long taskId,String authHeader , TaskUpdateRequest request) {
+
+        String email = extractEmail(authHeader);
+
+        OfficeStaff staff = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Staff not found for email: " + email)
+        );
+
 
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
@@ -99,6 +124,7 @@ public class OfficeStaffService {
         update.setWorkDoneToday(request.getWorkDoneToday());
         update.setBlockers(request.getBlockers());
         update.setComments(request.getComments());
+        update.setUpdatedBy(staff);
         update.setAttachmentUrl(request.getAttachmentUrl());
         update.setStatus(request.getStatus());
         update.setUpdatedAt(LocalDateTime.now());

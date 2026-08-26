@@ -33,19 +33,20 @@ public class OfficeStaffController {
     }
 
     // TASKS
-    @GetMapping("/{staffId}/tasks")
-    public ResponseEntity<List<TaskResponse>> myTasks(@PathVariable Long staffId) {
-        return ResponseEntity.ok(service.getMyTasks(staffId));
+    @GetMapping("/task/mytasks")
+    public ResponseEntity<List<TaskResponse>> myTasks(@RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(service.getMyTasks(authHeader));
     }
 
-    @PutMapping("/task/{taskId}/progress")
+    @PutMapping("/task/progress/{taskId}")
     public ResponseEntity<Task> updateProgress(
             @PathVariable Long taskId,
-            @RequestBody TaskUpdateRequest request) {
-        return ResponseEntity.ok(service.updateProgress(taskId, request));
+            @RequestBody TaskUpdateRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(service.updateProgress(taskId, authHeader,request));
     }
 
-    @PutMapping("/task/{taskId}/submit")
+    @PutMapping("/task/submit/{taskId}")
     public ResponseEntity<Task> submitTask(@PathVariable Long taskId) {
         return ResponseEntity.ok(service.submitTask(taskId));
     }
