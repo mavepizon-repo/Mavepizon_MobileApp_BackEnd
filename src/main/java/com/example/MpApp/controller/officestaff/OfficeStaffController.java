@@ -39,7 +39,7 @@ public class OfficeStaffController {
     }
 
     @PutMapping("/task/progress/{taskId}")
-    public ResponseEntity<Task> updateProgress(
+    public ResponseEntity<?> updateProgress(
             @PathVariable Long taskId,
             @RequestBody TaskUpdateRequest request,
             @RequestHeader("Authorization") String authHeader) {
@@ -47,7 +47,7 @@ public class OfficeStaffController {
     }
 
     @PutMapping("/task/submit/{taskId}")
-    public ResponseEntity<Task> submitTask(@PathVariable Long taskId) {
+    public ResponseEntity<?> submitTask(@PathVariable Long taskId) {
         return ResponseEntity.ok(service.submitTask(taskId));
     }
 

@@ -3,6 +3,7 @@ package com.example.MpApp.controller.teamlead;
 import com.example.MpApp.dto.common.ForgotPasswordRequest;
 import com.example.MpApp.dto.officestaff.CheckInRequestDTO;
 import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
+import com.example.MpApp.dto.officestaff.OfficeStaffResponseDTO;
 import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,7 +40,7 @@ import java.util.Map;
 
 
 @RestController
-@RequestMapping("/api/teamlead")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class TeamLeadController {
 
@@ -54,7 +56,7 @@ public class TeamLeadController {
     // TEAM LEAD LOGIN
     // ==========================================================
 
-    @PostMapping("/login")
+    @PostMapping("/teamlead/login")
     public ResponseEntity<?> login(
             @RequestBody TeamLeadLoginRequest request) {
 
@@ -140,7 +142,7 @@ public class TeamLeadController {
     // STAFF MANAGEMENT
     // ==========================================================
 
-    @PostMapping("/staff")
+    @PostMapping("/office-staff/create")
     public ResponseEntity<?> createStaff(
             @RequestHeader("Authorization") String authHeader,@RequestBody OfficeStaff staff) {
 
@@ -169,7 +171,7 @@ public class TeamLeadController {
     }
 
 
-    @PutMapping("/update-files/{id}")
+    @PutMapping("/office-staff/update-files/{id}")
     public ResponseEntity<?> updateStaffFiles(
             @PathVariable Long id,
             @RequestParam(
@@ -201,15 +203,15 @@ public class TeamLeadController {
     }
 
 
-    @PutMapping("/{teamLeadId}/staff/{staffId}")
+    @PutMapping("/staff/update/{staffId}")
     public ResponseEntity<?> updateStaff(
-            @PathVariable Long teamLeadId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long staffId,
             @RequestBody OfficeStaff staff) {
 
         return ResponseEntity.ok(
                 service.updateStaff(
-                        teamLeadId,
+                        authHeader,
                         staffId,
                         staff
                 )
@@ -218,16 +220,17 @@ public class TeamLeadController {
 
 
     @GetMapping("/staff/all")
-    public ResponseEntity<List<OfficeStaff>> getAllStaff(
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<List<OfficeStaffResponseDTO>> getAllStaff(
             @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
-                service.getAllStaff(authHeader)
+                service.getAllStaff()
         );
     }
 
     @GetMapping("/staff/all-by-teamlead")
-    public ResponseEntity<List<OfficeStaff>> getAllStaffByTeamLeadId(
+    public ResponseEntity<List<OfficeStaffResponseDTO>> getAllStaffByTeamLeadId(
             @RequestHeader("Authorization") String authHeader
     ) {
         return ResponseEntity.ok(service.getAllStaffByTeamLead(authHeader));
@@ -235,7 +238,7 @@ public class TeamLeadController {
 
 
     @GetMapping("/staff/{staffId}")
-    public ResponseEntity<OfficeStaff> getStaffById(
+    public ResponseEntity<OfficeStaffResponseDTO> getStaffById(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long staffId) {
 
@@ -281,6 +284,7 @@ public class TeamLeadController {
     // ==========================================================
 
     @PostMapping("/task/assign")
+    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
     public ResponseEntity<?> assignTask(@RequestBody TaskRequest request,  @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
@@ -292,6 +296,7 @@ public class TeamLeadController {
     }
 
     @PostMapping("/task/assign-some")
+    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
     public ResponseEntity<?> assignSome(
             @RequestBody TaskRequestSome request ,
             @RequestHeader("Authorization") String authHeader
@@ -304,6 +309,7 @@ public class TeamLeadController {
     }
 
     @PostMapping("/task/assign-all-by-teamlead")
+    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
     public ResponseEntity<?> assignAllByTeamLead(@RequestHeader("Authorization") String authHeader , @RequestBody TaskRequest request){
 
         return ResponseEntity.ok(
@@ -313,14 +319,18 @@ public class TeamLeadController {
     }
 
 
-    @PutMapping("/task/{taskId}")
+    @PutMapping("/task/update/{taskId}")
+    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
     public ResponseEntity<?> updateTask(
             @PathVariable Long taskId,
-            @RequestBody TaskAdminUpdateRequest request) {
+            @RequestBody TaskAdminUpdateRequest request,
+            @RequestHeader("Authorization") String authHeader
+            ) {
 
         return ResponseEntity.ok(
                 service.updateTaskAdmin(
                         taskId,
+                        authHeader,
                         request
                 )
         );
@@ -328,6 +338,7 @@ public class TeamLeadController {
 
 
     @DeleteMapping("/task/{taskId}")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<String> deleteTask(
             @PathVariable Long taskId) {
 
@@ -340,6 +351,7 @@ public class TeamLeadController {
 
 
     @GetMapping("/task/get-all")
+    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
     public ResponseEntity<List<TaskResponse>>
     getAllTasksByTeamLead(@RequestHeader("Authorization") String authHeader) {
 
@@ -350,6 +362,7 @@ public class TeamLeadController {
 
 
     @GetMapping("/tasks/{taskId}")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<TaskResponse> getTask(
             @PathVariable Long taskId) {
 
@@ -360,6 +373,7 @@ public class TeamLeadController {
 
 
     @GetMapping("/tasks/staff/{staffId}")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<List<TaskResponse>>
     getByStaff(
             @PathVariable Long staffId) {
@@ -371,6 +385,7 @@ public class TeamLeadController {
 
 
     @GetMapping("/tasks/status/{status}")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<List<TaskResponse>>
     getByStatus(
             @PathVariable TaskStatus status) {
@@ -382,6 +397,7 @@ public class TeamLeadController {
 
 
     @GetMapping("/tasks/date-range")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<List<TaskResponse>>
     getByDateRange(
             @RequestParam LocalDate start,
@@ -400,16 +416,17 @@ public class TeamLeadController {
     // TASK REVIEW
     // ==========================================================
 
-    @PostMapping("/{teamLeadId}/task/{taskId}/review")
+    @PostMapping("/task/review/{taskId}")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<?> reviewTask(
-            @PathVariable Long teamLeadId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long taskId,
             @RequestBody TaskReviewRequest request) {
 
         return ResponseEntity.ok(
                 service.reviewTask(
                         taskId,
-                        teamLeadId,
+                        authHeader,
                         request
                 )
         );

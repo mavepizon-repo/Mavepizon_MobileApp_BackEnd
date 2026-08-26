@@ -1,12 +1,13 @@
 package com.example.MpApp.entity.admin;
 
+import com.example.MpApp.entity.common.StaffCreator;
 import jakarta.persistence.*;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "admin")
 @NoArgsConstructor
-public class Admin {
+public class Admin implements StaffCreator {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

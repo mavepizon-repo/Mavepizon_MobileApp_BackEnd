@@ -1,11 +1,14 @@
 package com.example.MpApp.service.teamlead;
 
+import com.example.MpApp.dto.officestaff.CreatedByDTO;
 import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
+import com.example.MpApp.dto.officestaff.OfficeStaffResponseDTO;
 import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
 import com.example.MpApp.dto.teamlead.TeamLeadProfileDTO;
 import com.example.MpApp.entity.OtpEntity;
+import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
 import com.example.MpApp.entity.enums.StaffCategory;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
@@ -21,6 +24,7 @@ import com.example.MpApp.exception.DuplicateResourceException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.OtpRepository;
+import com.example.MpApp.repository.admin.AdminRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
@@ -38,6 +42,9 @@ import com.example.MpApp.repository.student.StudentRepository;
 import com.example.MpApp.service.CloudinaryService;
 import com.example.MpApp.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -69,10 +76,25 @@ public class TeamLeadService {
     private final OfficeStaffPermissionRepository permissionRepository;
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
     private final OtpRepository otpRepository;
+    private final AdminRepository adminRepository;
+
 
     private final CloudinaryService cloudinaryService;
     private final TeamLeadAttendanceService teamLeadAttendanceService;
     private final EmailService emailService;
+
+    public String getMyRole() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        assert authentication != null;
+        return authentication.getAuthorities()
+                .stream()
+                .findFirst()
+                .map(GrantedAuthority::getAuthority)
+                .orElse("NO_ROLE");
+    }
 
     public String extractEmail(String authHeader){
         if (authHeader == null ||
@@ -228,7 +250,7 @@ public class TeamLeadService {
         TeamLead teamLead = repository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
 
-        List<OfficeStaff> allStaff = officeStaffRepository.findByTeamLeadId(teamLead.getId());
+        List<OfficeStaff> allStaff = officeStaffRepository.findByCreatedByIdAndType(teamLead.getId(),"TEAM_LEAD");
 
         for(OfficeStaff staff : allStaff){
 
@@ -268,10 +290,29 @@ public class TeamLeadService {
 
         String token = authHeader.substring(7);
         String email = jwtService.extractUsername(token);
+        String role = getMyRole();
+
+        System.out.println("Role : " + role);
 
 
-        TeamLead teamLead = repository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for Email: " + email));
+
+        if(role.equals("ROLE_TEAM_LEAD")){
+            TeamLead teamLead = repository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for Email: " + email));
+            staff.setCreatedBy(teamLead);
+
+        }else if(role.equals("ROLE_ADMIN")){
+
+            Admin admin = adminRepository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+            );
+
+            staff.setCreatedBy(admin);
+            staff.setApprovalStatus("APPROVED");
+
+        }
+
+
 
         if (officeStaffRepository.findByEmail(staff.getEmail()).isPresent()) {
             throw new DuplicateResourceException("Email Already Exists: " + staff.getEmail());
@@ -280,7 +321,8 @@ public class TeamLeadService {
         String generatedStaffId = generateStaffId(staff.getBranch(), staff.getCategory());
         staff.setStaffId(generatedStaffId);
         staff.setPassword(passwordEncoder.encode(staff.getPassword()));
-        staff.setTeamLead(teamLead);
+        staff.setActive(true);
+
         staff.setScore(100);
 
         OfficeStaff savedStaff = officeStaffRepository.save(staff);
@@ -311,9 +353,11 @@ public class TeamLeadService {
     }
 
     @Transactional
-    public Map<String, String> updateStaff(Long teamLeadId, Long staffId, OfficeStaff request) {
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+    public Map<String, String> updateStaff(String authHeader, Long staffId, OfficeStaff request) {
+
+        String email = extractEmail(authHeader);
+        repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + email));
 
         OfficeStaff existing = officeStaffRepository.findById(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + staffId));
@@ -334,24 +378,187 @@ public class TeamLeadService {
     }
 
     // GET ALL STAFFS
-    public List<OfficeStaff> getAllStaff(String authHeader) {
+    public List<OfficeStaffResponseDTO> getAllStaff() {
 
-        String email = extractEmail(authHeader);
+        List<OfficeStaff> staffs = officeStaffRepository.findAll();
+        List<OfficeStaffResponseDTO> response = new ArrayList<>();
 
-        repository.findByEmail(email).orElseThrow(
-                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
-        );
 
-        return officeStaffRepository.findAll();
+            for (OfficeStaff staff : staffs) {
+
+                OfficeStaffResponseDTO dto = new OfficeStaffResponseDTO();
+
+                dto.setId(staff.getId());
+                dto.setStaffId(staff.getStaffId());
+                dto.setEmployeeId(staff.getEmployeeId());
+
+                dto.setName(staff.getName());
+                dto.setEmail(staff.getEmail());
+                dto.setMobileNumber(staff.getMobileNumber());
+
+                dto.setGender(staff.getGender());
+                dto.setBloodGroup(staff.getBloodGroup());
+
+                dto.setBranch(staff.getBranch());
+                dto.setBranchName(staff.getBranchName());
+
+                dto.setCategory(
+                        staff.getCategory() != null
+                                ? staff.getCategory().name()
+                                : null
+                );
+
+                dto.setRole(staff.getRole());
+
+                dto.setDegree(staff.getDegree());
+                dto.setYearPassedOut(staff.getYearPassedOut());
+                dto.setJoiningDate(staff.getJoiningDate());
+
+                dto.setNativePlace(staff.getNativePlace());
+
+                dto.setExperience(staff.getExperience());
+                dto.setPreviousCompany(staff.getPreviousCompany());
+                dto.setSkills(staff.getSkills());
+
+                dto.setAadhaarFile(staff.getAadhaarFile());
+                dto.setProfilePhoto(staff.getProfilePhoto());
+                dto.setResumeFile(staff.getResumeFile());
+                dto.setExperienceCertificate(staff.getExperienceCertificate());
+
+                dto.setScore(staff.getScore());
+
+                dto.setActive(staff.isActive());
+                dto.setApprovalStatus(staff.getApprovalStatus());
+
+                // createdBy
+                if (staff.getCreatedBy() instanceof TeamLead teamLead) {
+
+                    CreatedByDTO createdByDTO = new CreatedByDTO();
+
+                    createdByDTO.setId(teamLead.getId());
+                    createdByDTO.setName(teamLead.getName());
+                    createdByDTO.setEmail(teamLead.getEmail());
+                    createdByDTO.setTeamLeadId(teamLead.getTeamLeadId());
+                    createdByDTO.setType("TEAM_LEAD");
+
+                    dto.setCreatedBy(createdByDTO);
+
+                } else if (staff.getCreatedBy() instanceof Admin admin) {
+
+                    CreatedByDTO createdByDTO = new CreatedByDTO();
+
+                    createdByDTO.setId(admin.getId());
+                    createdByDTO.setName(admin.getUserName());
+                    createdByDTO.setEmail(admin.getEmail());
+                    createdByDTO.setType("ADMIN");
+
+                    dto.setCreatedBy(createdByDTO);
+                }
+
+                response.add(dto);
+            }
+
+            return response;
+
     }
 
     //GET ALL STAFFS BY TEAM LEAD
-    public List<OfficeStaff> getAllStaffByTeamLead(String authHeader) {
+    public List<OfficeStaffResponseDTO> getAllStaffByTeamLead(String authHeader) {
         String email = extractEmail(authHeader);
-        TeamLead teamLead = repository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+        String role = getMyRole();
+        List<OfficeStaff> staffs;
+        if(role.equals("ROLE_ADMIN")){
+            Admin admin = adminRepository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+            );
 
-        return officeStaffRepository.findByTeamLeadId(teamLead.getId());
+            staffs = officeStaffRepository.findByCreatedByIdAndType(admin.getId(),"ADMIN");
+
+        }else{
+            TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Team Lead not found for Email: " + email)
+            );
+
+            staffs = officeStaffRepository.findByCreatedByIdAndType(teamLead.getId(),"TEAM_LEAD");
+        }
+
+        List<OfficeStaffResponseDTO> response = new ArrayList<>();
+
+        for(OfficeStaff staff : staffs){
+            OfficeStaffResponseDTO dto = new OfficeStaffResponseDTO();
+
+            dto.setId(staff.getId());
+            dto.setStaffId(staff.getStaffId());
+            dto.setEmployeeId(staff.getEmployeeId());
+
+            dto.setName(staff.getName());
+            dto.setEmail(staff.getEmail());
+            dto.setMobileNumber(staff.getMobileNumber());
+
+            dto.setGender(staff.getGender());
+            dto.setBloodGroup(staff.getBloodGroup());
+
+            dto.setBranch(staff.getBranch());
+            dto.setBranchName(staff.getBranchName());
+
+            dto.setCategory(
+                    staff.getCategory() != null
+                            ? staff.getCategory().name()
+                            : null
+            );
+
+            dto.setRole(staff.getRole());
+
+            dto.setDegree(staff.getDegree());
+            dto.setYearPassedOut(staff.getYearPassedOut());
+            dto.setJoiningDate(staff.getJoiningDate());
+
+            dto.setNativePlace(staff.getNativePlace());
+
+            dto.setExperience(staff.getExperience());
+            dto.setPreviousCompany(staff.getPreviousCompany());
+            dto.setSkills(staff.getSkills());
+
+            dto.setAadhaarFile(staff.getAadhaarFile());
+            dto.setProfilePhoto(staff.getProfilePhoto());
+            dto.setResumeFile(staff.getResumeFile());
+            dto.setExperienceCertificate(staff.getExperienceCertificate());
+
+            dto.setScore(staff.getScore());
+
+            dto.setActive(staff.isActive());
+            dto.setApprovalStatus(staff.getApprovalStatus());
+
+            // createdBy
+            if (staff.getCreatedBy() instanceof TeamLead teamLead) {
+
+                CreatedByDTO createdByDTO = new CreatedByDTO();
+
+                createdByDTO.setId(teamLead.getId());
+                createdByDTO.setName(teamLead.getName());
+                createdByDTO.setEmail(teamLead.getEmail());
+                createdByDTO.setTeamLeadId(teamLead.getTeamLeadId());
+                createdByDTO.setType("TEAM_LEAD");
+
+                dto.setCreatedBy(createdByDTO);
+
+            } else if (staff.getCreatedBy() instanceof Admin admin) {
+
+                CreatedByDTO createdByDTO = new CreatedByDTO();
+
+                createdByDTO.setId(admin.getId());
+                createdByDTO.setName(admin.getUserName());
+                createdByDTO.setEmail(admin.getEmail());
+                createdByDTO.setType("ADMIN");
+
+                dto.setCreatedBy(createdByDTO);
+            }
+
+            response.add(dto);
+        }
+
+
+        return response;
     }
 
 
@@ -379,7 +586,11 @@ public class TeamLeadService {
 
 
     @Transactional
-    public Map<String, String> updateTaskAdmin(Long taskId, TaskAdminUpdateRequest request) {
+    public Map<String, String> updateTaskAdmin(Long taskId,String authHeader, TaskAdminUpdateRequest request) {
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
+        );
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Target task context not found for ID: " + taskId));
 
@@ -393,6 +604,7 @@ public class TeamLeadService {
         if (request.getRemarks() != null) task.setRemarks(request.getRemarks());
         if (request.getCompletionRemarks() != null) task.setCompletionRemarks(request.getCompletionRemarks());
         if (request.getTaskType() != null) task.setTaskType(request.getTaskType());
+        task.setTeamLead(teamLead);
 
         taskRepository.save(task);
 
@@ -415,8 +627,9 @@ public class TeamLeadService {
                 () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
         );
 
-        Long teamLeadId = teamLead.getId();
-        return taskRepository.findTasksByTeamLead(teamLeadId);
+        return taskRepository.findTasksByTeamLead(teamLead.getId());
+
+
     }
 
 
@@ -442,12 +655,16 @@ public class TeamLeadService {
     }
 
     @Transactional
-    public Map<String, String> reviewTask(Long taskId, Long teamLeadId, TaskReviewRequest request) {
+    public Map<String, String> reviewTask(Long taskId,String authHeader, TaskReviewRequest request) {
+
+
+        String email = extractEmail(authHeader);
+
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found for ID: " + taskId));
 
-        TeamLead lead = repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+        TeamLead lead = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + email));
 
         TaskReview review = new TaskReview();
         review.setTask(task);
@@ -869,6 +1086,8 @@ public class TeamLeadService {
         otpRepository.deleteByEmail(email);
         return "Password Reset Successful";
     }
+
+
     public String changePassword(String email, String oldPassword, String newPassword) {
         // 1. Find the Team Lead
         TeamLead teamLead = repository.findByEmail(email)
@@ -895,7 +1114,7 @@ public class TeamLeadService {
         return Map.of("message", "Staff account state updated to " + (active ? "ACTIVE" : "INACTIVE"));
     }
 
-    public OfficeStaff getStaffById(String authHeader, Long staffId) {
+    public OfficeStaffResponseDTO getStaffById(String authHeader, Long staffId) {
 
         String email = extractEmail(authHeader);
         // 1. Verify Team Lead exists
@@ -903,8 +1122,81 @@ public class TeamLeadService {
                 .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for Email: " + email));
 
         // 2. Fetch and return the staff member
-        return officeStaffRepository.findById(staffId)
+        OfficeStaff staff =  officeStaffRepository.findById(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + staffId));
+
+        OfficeStaffResponseDTO dto = new OfficeStaffResponseDTO();
+
+        dto.setId(staff.getId());
+        dto.setStaffId(staff.getStaffId());
+        dto.setEmployeeId(staff.getEmployeeId());
+
+        dto.setName(staff.getName());
+        dto.setEmail(staff.getEmail());
+        dto.setMobileNumber(staff.getMobileNumber());
+
+        dto.setGender(staff.getGender());
+        dto.setBloodGroup(staff.getBloodGroup());
+
+        dto.setBranch(staff.getBranch());
+        dto.setBranchName(staff.getBranchName());
+
+        dto.setCategory(
+                staff.getCategory() != null
+                        ? staff.getCategory().name()
+                        : null
+        );
+
+        dto.setRole(staff.getRole());
+
+        dto.setDegree(staff.getDegree());
+        dto.setYearPassedOut(staff.getYearPassedOut());
+        dto.setJoiningDate(staff.getJoiningDate());
+
+        dto.setNativePlace(staff.getNativePlace());
+
+        dto.setExperience(staff.getExperience());
+        dto.setPreviousCompany(staff.getPreviousCompany());
+        dto.setSkills(staff.getSkills());
+
+        dto.setAadhaarFile(staff.getAadhaarFile());
+        dto.setProfilePhoto(staff.getProfilePhoto());
+        dto.setResumeFile(staff.getResumeFile());
+        dto.setExperienceCertificate(staff.getExperienceCertificate());
+
+        dto.setScore(staff.getScore());
+
+        dto.setActive(staff.isActive());
+        dto.setApprovalStatus(staff.getApprovalStatus());
+
+        // createdBy
+        if (staff.getCreatedBy() instanceof TeamLead teamLead) {
+
+            CreatedByDTO createdByDTO = new CreatedByDTO();
+
+            createdByDTO.setId(teamLead.getId());
+            createdByDTO.setName(teamLead.getName());
+            createdByDTO.setEmail(teamLead.getEmail());
+            createdByDTO.setTeamLeadId(teamLead.getTeamLeadId());
+            createdByDTO.setType("TEAM_LEAD");
+
+            dto.setCreatedBy(createdByDTO);
+
+        } else if (staff.getCreatedBy() instanceof Admin admin) {
+
+            CreatedByDTO createdByDTO = new CreatedByDTO();
+
+            createdByDTO.setId(admin.getId());
+            createdByDTO.setName(admin.getUserName());
+            createdByDTO.setEmail(admin.getEmail());
+            createdByDTO.setType("ADMIN");
+
+            dto.setCreatedBy(createdByDTO);
+        }
+
+        return dto;
+
+
     }
 
     public TeamLeadProfileDTO getTeamLeadProfile(Long teamLeadId) {

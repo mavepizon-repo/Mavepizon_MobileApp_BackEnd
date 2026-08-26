@@ -1,12 +1,17 @@
     package com.example.MpApp.entity.officestaff;
     
     import java.time.LocalDate;
-    
+
+    import com.example.MpApp.entity.admin.Admin;
+    import com.example.MpApp.entity.common.StaffCreator;
     import com.example.MpApp.entity.enums.StaffCategory;
     import com.example.MpApp.entity.teamlead.TeamLead;
     import com.fasterxml.jackson.annotation.JsonProperty;
     import jakarta.persistence.*;
     import lombok.Data;
+    import org.hibernate.annotations.*;
+
+
 
     @Entity
     @Table(name = "office_staff")
@@ -26,8 +31,16 @@
         private String gender;
         private String role;
 
-        @ManyToOne(fetch = FetchType.LAZY)
-        private TeamLead teamLead;
+        @Any(fetch = FetchType.LAZY)
+        @AnyDiscriminator(DiscriminatorType.STRING)
+        @AnyDiscriminatorValues({
+                @AnyDiscriminatorValue(discriminator = "ADMIN", entity = Admin.class),
+                @AnyDiscriminatorValue(discriminator = "TEAM_LEAD", entity = TeamLead.class)
+        })
+        @AnyKeyJavaClass(Long.class)
+        @Column(name = "created_by_type")
+        @JoinColumn(name = "created_by_id")
+        private StaffCreator createdBy;
     
         private LocalDate joiningDate;
     

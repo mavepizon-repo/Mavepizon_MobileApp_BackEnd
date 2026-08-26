@@ -105,7 +105,7 @@ public class OfficeStaffService {
         return taskRepository.findTasksByStaff(staff.getId());
     }
 
-    public Task updateProgress(Long taskId,String authHeader , TaskUpdateRequest request) {
+    public TaskResponse updateProgress(Long taskId,String authHeader , TaskUpdateRequest request) {
 
         String email = extractEmail(authHeader);
 
@@ -134,17 +134,65 @@ public class OfficeStaffService {
         task.setProgress(request.getProgressPercentage());
         task.setStatus(request.getStatus());
 
-        return taskRepository.save(task);
+        Task tasks =  taskRepository.save(task);
+
+        TaskResponse response = new TaskResponse();
+
+        response.setTaskId(tasks.getId());
+        response.setTitle(tasks.getTitle());
+        response.setDescription(tasks.getDescription());
+        response.setAssignedDate(tasks.getAssignedDate());
+        response.setDeadline(tasks.getDeadline());
+        response.setProgress(tasks.getProgress());
+        response.setEstimatedHours(tasks.getEstimatedHours());
+        response.setStatus(tasks.getStatus());
+        response.setPriority(tasks.getPriority());
+        response.setTaskType(tasks.getTaskType());
+        response.setStaffId(tasks.getStaff().getId());
+        response.setStaffName(tasks.getStaff().getName());
+        response.setStaffRole(String.valueOf(tasks.getStaff().getCategory()));
+        response.setStaffIdCode(tasks.getStaff().getStaffId());
+        response.setTeamLeadId(tasks.getTeamLead().getId());
+        response.setTeamLeadName(tasks.getTeamLead().getName());
+        response.setTeamLeadIdCode(tasks.getTeamLead().getTeamLeadId());
+
+        return response;
+
+
+
+
     }
 
-    public Task submitTask(Long taskId) {
+    public TaskResponse submitTask(Long taskId) {
 
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
 
         task.setStatus(TaskStatus.WAITING_FOR_REVIEW);
 
-        return taskRepository.save(task);
+        Task tasks =  taskRepository.save(task);
+
+        TaskResponse response = new TaskResponse();
+
+        response.setTaskId(tasks.getId());
+        response.setTitle(tasks.getTitle());
+        response.setDescription(tasks.getDescription());
+        response.setAssignedDate(tasks.getAssignedDate());
+        response.setDeadline(tasks.getDeadline());
+        response.setProgress(tasks.getProgress());
+        response.setEstimatedHours(tasks.getEstimatedHours());
+        response.setStatus(tasks.getStatus());
+        response.setPriority(tasks.getPriority());
+        response.setTaskType(tasks.getTaskType());
+        response.setStaffId(tasks.getStaff().getId());
+        response.setStaffName(tasks.getStaff().getName());
+        response.setStaffRole(String.valueOf(tasks.getStaff().getCategory()));
+        response.setStaffIdCode(tasks.getStaff().getStaffId());
+        response.setTeamLeadId(tasks.getTeamLead().getId());
+        response.setTeamLeadName(tasks.getTeamLead().getName());
+        response.setTeamLeadIdCode(tasks.getTeamLead().getTeamLeadId());
+
+        return response;
     }
 
     public OfficeStaffProfileResponse getProfile(Long staffId) {

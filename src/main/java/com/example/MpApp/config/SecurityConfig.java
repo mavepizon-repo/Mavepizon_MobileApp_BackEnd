@@ -105,7 +105,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // ================= TEAM LEAD =================
-                        .requestMatchers("/api/teamlead/**").hasRole("TEAM_LEAD")
+                        .requestMatchers("/api/teamlead/**").hasAnyRole("TEAM_LEAD","ADMIN")
 
                         // ================= OFFICE STAFF =================
                         .requestMatchers("/api/officestaff/telecalling/**").hasRole("OFFICE_STAFF")

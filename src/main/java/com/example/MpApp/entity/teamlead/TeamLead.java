@@ -1,6 +1,7 @@
 package com.example.MpApp.entity.teamlead;
 
 import com.example.MpApp.entity.admin.Admin;
+import com.example.MpApp.entity.common.StaffCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
@@ -9,7 +10,7 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "team_lead")
-public class TeamLead {
+public class TeamLead implements StaffCreator {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
