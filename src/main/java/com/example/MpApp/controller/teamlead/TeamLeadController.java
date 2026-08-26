@@ -217,24 +217,31 @@ public class TeamLeadController {
     }
 
 
-    @GetMapping("/{teamLeadId}/staff")
+    @GetMapping("/staff/all")
     public ResponseEntity<List<OfficeStaff>> getAllStaff(
-            @PathVariable Long teamLeadId) {
+            @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
-                service.getAllStaff(teamLeadId)
+                service.getAllStaff(authHeader)
         );
     }
 
+    @GetMapping("/staff/all-by-teamlead")
+    public ResponseEntity<List<OfficeStaff>> getAllStaffByTeamLeadId(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        return ResponseEntity.ok(service.getAllStaffByTeamLead(authHeader));
+    }
 
-    @GetMapping("/{teamLeadId}/staff/{staffId}")
+
+    @GetMapping("/staff/{staffId}")
     public ResponseEntity<OfficeStaff> getStaffById(
-            @PathVariable Long teamLeadId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long staffId) {
 
         return ResponseEntity.ok(
                 service.getStaffById(
-                        teamLeadId,
+                        authHeader,
                         staffId
                 )
         );
@@ -292,6 +299,15 @@ public class TeamLeadController {
 
         return ResponseEntity.ok(
                 service.assignTaskToSome(authHeader,request)
+        );
+
+    }
+
+    @PostMapping("/task/assign-all-by-teamlead")
+    public ResponseEntity<?> assignAllByTeamLead(@RequestHeader("Authorization") String authHeader , @RequestBody TaskRequest request){
+
+        return ResponseEntity.ok(
+                service.assignWorkToAllStaff(authHeader,request)
         );
 
     }

@@ -21,4 +21,9 @@ public interface OfficeStaffRepository
     List<OfficeStaff> findAllByOrderByScoreDesc();
 
     List<OfficeStaff> findByApprovalStatus(String status);
+
+    List<OfficeStaff> findByBranch(String branch);
+
+    List<OfficeStaff> findByTeamLeadId(Long teamLeadId);
+
 }

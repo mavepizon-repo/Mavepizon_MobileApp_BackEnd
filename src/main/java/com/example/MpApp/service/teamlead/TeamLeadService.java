@@ -210,7 +210,7 @@ public class TeamLeadService {
             task.setStaff(staff);
             task.setTeamLead(teamLead);
 
-            Task savedTask = taskRepository.save(task);
+            taskRepository.save(task);
 
 
 
@@ -220,6 +220,39 @@ public class TeamLeadService {
         response.put("message", "Tasks Assigned Successfully");
         return response;
 
+    }
+
+    //ASSIGN WORK TO ALL STAFF
+    public Map<String,String> assignWorkToAllStaff(String authHeader , TaskRequest request) {
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+
+        List<OfficeStaff> allStaff = officeStaffRepository.findByTeamLeadId(teamLead.getId());
+
+        for(OfficeStaff staff : allStaff){
+
+            Task task = new Task();
+            task.setTitle(request.getTitle());
+            task.setDescription(request.getDescription());
+            task.setAssignedDate(LocalDate.now());
+            task.setDeadline(request.getDeadline());
+            task.setTaskType(request.getTaskType());
+            task.setPriority(request.getPriority());
+            task.setEstimatedHours(request.getEstimatedHours());
+            task.setRemarks(request.getRemarks());
+            task.setStatus(TaskStatus.ASSIGNED);
+            task.setProgress(0);
+            task.setStaff(staff);
+            task.setTeamLead(teamLead);
+
+            taskRepository.save(task);
+
+        }
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Tasks Assigned Successfully");
+        return response;
     }
 
     // ---------------- STAFF MANAGEMENT (UPDATED) ----------------
@@ -237,7 +270,7 @@ public class TeamLeadService {
         String email = jwtService.extractUsername(token);
 
 
-        repository.findByEmail(email)
+        TeamLead teamLead = repository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for Email: " + email));
 
         if (officeStaffRepository.findByEmail(staff.getEmail()).isPresent()) {
@@ -247,6 +280,7 @@ public class TeamLeadService {
         String generatedStaffId = generateStaffId(staff.getBranch(), staff.getCategory());
         staff.setStaffId(generatedStaffId);
         staff.setPassword(passwordEncoder.encode(staff.getPassword()));
+        staff.setTeamLead(teamLead);
         staff.setScore(100);
 
         OfficeStaff savedStaff = officeStaffRepository.save(staff);
@@ -299,10 +333,28 @@ public class TeamLeadService {
         return response;
     }
 
-    // UNCHANGED GET METHOD
-    public List<OfficeStaff> getAllStaff(Long teamLeadId) {
+    // GET ALL STAFFS
+    public List<OfficeStaff> getAllStaff(String authHeader) {
+
+        String email = extractEmail(authHeader);
+
+        repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
+        );
+
         return officeStaffRepository.findAll();
     }
+
+    //GET ALL STAFFS BY TEAM LEAD
+    public List<OfficeStaff> getAllStaffByTeamLead(String authHeader) {
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+
+        return officeStaffRepository.findByTeamLeadId(teamLead.getId());
+    }
+
+
 
     @Transactional
     public void deleteStaff(Long staffId) {
@@ -366,6 +418,8 @@ public class TeamLeadService {
         Long teamLeadId = teamLead.getId();
         return taskRepository.findTasksByTeamLead(teamLeadId);
     }
+
+
 
     // UNCHANGED GET METHOD
     public TaskResponse getTaskById(Long taskId) {
@@ -841,10 +895,12 @@ public class TeamLeadService {
         return Map.of("message", "Staff account state updated to " + (active ? "ACTIVE" : "INACTIVE"));
     }
 
-    public OfficeStaff getStaffById(Long teamLeadId, Long staffId) {
+    public OfficeStaff getStaffById(String authHeader, Long staffId) {
+
+        String email = extractEmail(authHeader);
         // 1. Verify Team Lead exists
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+        repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for Email: " + email));
 
         // 2. Fetch and return the staff member
         return officeStaffRepository.findById(staffId)
