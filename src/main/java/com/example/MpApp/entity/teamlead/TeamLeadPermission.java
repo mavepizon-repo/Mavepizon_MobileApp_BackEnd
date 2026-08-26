@@ -2,6 +2,7 @@ package com.example.MpApp.entity.teamlead;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -14,13 +15,17 @@ public class TeamLeadPermission {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Assuming your Team Lead entity is called 'OfficeStaff' or a distinct 'TeamLead' entity
-    // Adjust the target class type below if your entity name differs
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_lead_id", nullable = false)
+    @JoinColumn(
+            name = "team_lead_id",
+            nullable = false
+    )
     private TeamLead teamLead;
 
-    @Column(name = "permission_date", nullable = false)
+    @Column(
+            name = "permission_date",
+            nullable = false
+    )
     private LocalDate permissionDate;
 
     @Column(name = "duration_hours")
@@ -30,12 +35,15 @@ public class TeamLeadPermission {
     private String reason;
 
     @Column(nullable = false)
-    private String status; // PENDING, APPROVED, REJECTED
+    private String status;
 
     @Column(name = "remarks")
-    private String remarks; // Admin rejection reasons
+    private String remarks;
 
-    @Column(name = "created_at", updatable = false)
+    @Column(
+            name = "created_at",
+            updatable = false
+    )
     private LocalDateTime createdAt;
 
     @PrePersist

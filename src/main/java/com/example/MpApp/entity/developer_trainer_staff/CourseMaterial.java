@@ -1,35 +1,80 @@
 package com.example.MpApp.entity.developer_trainer_staff;
 
-import com.example.MpApp.entity.officestaff.OfficeStaff;
+import com.example.MpApp.entity.course.Course;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Entity
-@Table(name="course_materials")
+@Table(name = "course_materials")
 public class CourseMaterial {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+
+    // =========================================================
+    // MATERIAL DETAILS
+    // =========================================================
+
+    @Column(nullable = false)
     private String title;
 
+    @Column(nullable = false, length = 2000)
     private String fileUrl;
 
     private LocalDateTime uploadedAt;
 
-    @ManyToOne
-    private TrainingBatch batch;
 
-    @ManyToOne
-    private OfficeStaff trainer;
+    // =========================================================
+    // COURSE
+    // =========================================================
+    /*
+     * Material belongs to a COURSE.
+     *
+     * TrainingBatch is no longer used here.
+     */
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "course_id",
+            nullable = false
+    )
+    private Course course;
+
+
+    // =========================================================
+    // UPLOADED BY STAFF
+    // =========================================================
+    /*
+     * ID of the Developer + Trainer staff
+     * who uploaded the material.
+     *
+     * We keep the ID instead of OfficeStaff because
+     * the trainer/developer staff module is separate.
+     */
+
+    @Column(name = "uploaded_by_staff_id", nullable = false)
+    private Long uploadedByStaffId;
+
+
+    // =========================================================
+    // CREATED DATE
+    // =========================================================
 
     @PrePersist
     public void prePersist() {
-        uploadedAt = LocalDateTime.now();
+
+        if (uploadedAt == null) {
+            uploadedAt = LocalDateTime.now();
+        }
     }
+
+
+    // =========================================================
+    // GETTERS & SETTERS
+    // =========================================================
 
     public Long getId() {
         return id;
@@ -39,6 +84,7 @@ public class CourseMaterial {
         this.id = id;
     }
 
+
     public String getTitle() {
         return title;
     }
@@ -46,6 +92,7 @@ public class CourseMaterial {
     public void setTitle(String title) {
         this.title = title;
     }
+
 
     public String getFileUrl() {
         return fileUrl;
@@ -55,6 +102,7 @@ public class CourseMaterial {
         this.fileUrl = fileUrl;
     }
 
+
     public LocalDateTime getUploadedAt() {
         return uploadedAt;
     }
@@ -63,19 +111,21 @@ public class CourseMaterial {
         this.uploadedAt = uploadedAt;
     }
 
-    public TrainingBatch getBatch() {
-        return batch;
+
+    public Course getCourse() {
+        return course;
     }
 
-    public void setBatch(TrainingBatch batch) {
-        this.batch = batch;
+    public void setCourse(Course course) {
+        this.course = course;
     }
 
-    public OfficeStaff getTrainer() {
-        return trainer;
+
+    public Long getUploadedByStaffId() {
+        return uploadedByStaffId;
     }
 
-    public void setTrainer(OfficeStaff trainer) {
-        this.trainer = trainer;
+    public void setUploadedByStaffId(Long uploadedByStaffId) {
+        this.uploadedByStaffId = uploadedByStaffId;
     }
 }

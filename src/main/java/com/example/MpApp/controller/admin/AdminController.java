@@ -4,16 +4,17 @@ import com.example.MpApp.dto.task.TaskAdminUpdateRequest;
 import com.example.MpApp.dto.task.TaskRequest;
 import com.example.MpApp.dto.task.TaskReviewRequest;
 import com.example.MpApp.dto.task.TaskUpdateRequest;
+import com.example.MpApp.dto.teamlead.TeamLeadPerformanceDTO;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
-import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.teamlead.TeamLead;
 import com.example.MpApp.entity.teamlead.TeamLeadPermission;
 import com.example.MpApp.service.admin.AdminService;
-import com.example.MpApp.dto.admin.AdminLoginRequest;
 import com.example.MpApp.service.officestaff.OfficeStaffAttendanceService;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,81 +32,207 @@ public class AdminController {
     private final AdminService service;
     private final OfficeStaffAttendanceService attendanceService;
 
-    // ================= AUTH =================
+
+    // ==========================================================
+    // AUTH
+    // ==========================================================
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Admin admin) {
-        return ResponseEntity.ok(service.registerAdmin(admin));
+
+        return ResponseEntity.ok(
+                service.registerAdmin(admin)
+        );
     }
 
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AdminLoginRequest request) {
-        return ResponseEntity.ok(service.login(request));
+    public ResponseEntity<?> login(
+            @RequestBody com.example.MpApp.dto.admin.AdminLoginRequest request) {
+
+        return ResponseEntity.ok(
+                service.login(request)
+        );
     }
+
 
     @PutMapping("/update-files/{id}")
     public ResponseEntity<?> updateAdminFiles(
             @PathVariable Long id,
-            @RequestParam(value = "profile", required = false) MultipartFile profile) {
-        return ResponseEntity.ok(service.updateAdminFiles(id, profile));
+            @RequestParam(value = "profile", required = false)
+            MultipartFile profile) {
+
+        return ResponseEntity.ok(
+                service.updateAdminFiles(id, profile)
+        );
     }
 
-    // ================= TEAM LEAD =================
 
-    @PostMapping("/{adminId}/teamlead")
-    public ResponseEntity<?> createTeamLead(@PathVariable Long adminId,
-                                            @RequestBody TeamLead teamLead) {
-        return ResponseEntity.ok(service.createTeamLead(adminId, teamLead));
+    @GetMapping("/dashboard")
+    public ResponseEntity<Map<String, Object>> getDashboardStats() {
+
+        return ResponseEntity.ok(
+                service.getAdminDashboardStats()
+        );
     }
+
+
+    // ==========================================================
+    // STAFF PENDING APPROVALS
+    // ==========================================================
+
+    @GetMapping("/staff/pending-approvals")
+    public ResponseEntity<?> getPendingStaff() {
+
+        return ResponseEntity.ok(
+                service.getPendingStaffRegistrations()
+        );
+    }
+
+
+    @PatchMapping("/staff/{staffId}/approve")
+    public ResponseEntity<?> approveStaff(
+            @PathVariable Long staffId) {
+
+        return ResponseEntity.ok(
+                service.approveStaffRegistration(staffId)
+        );
+    }
+
+
+    // ==========================================================
+    // TEAM LEAD
+    // ==========================================================
+
+    @PostMapping("/teamlead")
+    public ResponseEntity<?> createTeamLead(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody TeamLead teamLead) {
+
+        return ResponseEntity.ok(
+                service.createTeamLeadFromToken(authHeader, teamLead)
+        );
+    }
+
 
     @PutMapping("/teamlead/update-files/{id}")
     public ResponseEntity<?> updateTeamLeadFiles(
             @PathVariable Long id,
-            @RequestParam(value = "profile", required = false) MultipartFile profile,
-            @RequestParam(value = "aadhaar", required = false) MultipartFile aadhaar, // [Aadhaar Redacted]
-            @RequestParam(value = "resume", required = false) MultipartFile resume) {
-        return ResponseEntity.ok(service.updateTeamLeadFiles(id, profile, aadhaar, resume));
+            @RequestParam(value = "profile", required = false)
+            MultipartFile profile,
+            @RequestParam(value = "aadhaar", required = false)
+            MultipartFile aadhaar,
+            @RequestParam(value = "resume", required = false)
+            MultipartFile resume) {
+
+        return ResponseEntity.ok(
+                service.updateTeamLeadFiles(
+                        id,
+                        profile,
+                        aadhaar,
+                        resume
+                )
+        );
     }
+
 
     @GetMapping("/teamlead")
     public ResponseEntity<?> getAllTeamLeads() {
-        return ResponseEntity.ok(service.getAllTeamLeads());
+
+        return ResponseEntity.ok(
+                service.getAllTeamLeads()
+        );
     }
+
 
     @GetMapping("/teamlead/{id}")
-    public ResponseEntity<?> getTeamLead(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getTeamLeadById(id));
+    public ResponseEntity<?> getTeamLead(
+            @PathVariable Long id) {
+
+        return ResponseEntity.ok(
+                service.getTeamLeadById(id)
+        );
     }
+
 
     @PutMapping("/teamlead/{id}")
-    public ResponseEntity<?> updateTeamLead(@PathVariable Long id,
-                                            @RequestBody TeamLead request) {
-        return ResponseEntity.ok(service.updateTeamLead(id, request));
+    public ResponseEntity<?> updateTeamLead(
+            @PathVariable Long id,
+            @RequestBody TeamLead request) {
+
+        return ResponseEntity.ok(
+                service.updateTeamLead(id, request)
+        );
     }
 
+
     @DeleteMapping("/teamlead/{id}")
-    public ResponseEntity<?> deleteTeamLead(@PathVariable Long id) {
+    public ResponseEntity<?> deleteTeamLead(
+            @PathVariable Long id) {
+
         service.deleteTeamLead(id);
+
         return ResponseEntity.ok("Deleted");
     }
 
-    // ================= STAFF =================
+
+    @PatchMapping("/teamlead/{id}/status")
+    public ResponseEntity<?> toggleTeamLeadStatus(
+            @PathVariable Long id,
+            @RequestParam boolean active) {
+
+        return ResponseEntity.ok(
+                service.toggleTeamLeadStatus(id, active)
+        );
+    }
+
+
+    @GetMapping("/teamlead/{id}/performance")
+    public ResponseEntity<TeamLeadPerformanceDTO>
+    getTeamLeadPerformance(
+            @PathVariable Long id) {
+
+        return ResponseEntity.ok(
+                service.getTeamLeadPerformance(id)
+        );
+    }
+
+
+    // ==========================================================
+    // OFFICE STAFF
+    // ==========================================================
 
     @PostMapping("/{adminId}/staff")
-    public ResponseEntity<?> createStaff(@PathVariable Long adminId,
-                                         @RequestBody OfficeStaff staff) {
-        return ResponseEntity.ok(service.createStaff(adminId, staff));
+    public ResponseEntity<?> createStaff(
+            @PathVariable Long adminId,
+            @RequestBody OfficeStaff staff) {
+
+        return ResponseEntity.ok(
+                service.createStaff(adminId, staff)
+        );
     }
+
 
     @PutMapping("/staff/update-files/{id}")
     public ResponseEntity<?> updateStaffFiles(
             @PathVariable Long id,
-            @RequestParam(value = "profile", required = false) MultipartFile profile,
-            @RequestParam(value = "aadhaar", required = false) MultipartFile aadhaar, // [Aadhaar Redacted]
-            @RequestParam(value = "resume", required = false) MultipartFile resume) {
-        return ResponseEntity.ok(service.updateStaffFiles(id, profile, aadhaar, resume));
+            @RequestParam(value = "profile", required = false)
+            MultipartFile profile,
+            @RequestParam(value = "aadhaar", required = false)
+            MultipartFile aadhaar,
+            @RequestParam(value = "resume", required = false)
+            MultipartFile resume) {
+
+        return ResponseEntity.ok(
+                service.updateStaffFiles(
+                        id,
+                        profile,
+                        aadhaar,
+                        resume
+                )
+        );
     }
+
 
     @PutMapping("/staff/{id}")
     public ResponseEntity<?> updateStaff(
@@ -113,26 +240,45 @@ public class AdminController {
             @RequestBody OfficeStaff staff) {
 
         return ResponseEntity.ok(
-                service.updateStaff(id, staff));
+                service.updateStaff(id, staff)
+        );
     }
+
+   
+
 
     @GetMapping("/staff")
     public ResponseEntity<?> getAllStaff() {
-        return ResponseEntity.ok(service.getAllStaff());
+
+        return ResponseEntity.ok(
+                service.getAllStaff()
+        );
     }
+
 
     @GetMapping("/staff/{id}")
-    public ResponseEntity<?> getStaff(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getStaffById(id));
+    public ResponseEntity<?> getStaff(
+            @PathVariable Long id) {
+
+        return ResponseEntity.ok(
+                service.getStaffById(id)
+        );
     }
 
+
     @DeleteMapping("/staff/{id}")
-    public ResponseEntity<?> deleteStaff(@PathVariable Long id) {
+    public ResponseEntity<?> deleteStaff(
+            @PathVariable Long id) {
+
         service.deleteStaff(id);
+
         return ResponseEntity.ok("Deleted");
     }
 
-    // ================= COLLEGE STAFF (NEW) =================
+
+    // ==========================================================
+    // COLLEGE STAFF
+    // ==========================================================
 
     @PostMapping("/college-staff")
     public ResponseEntity<?> createCollegeStaff(
@@ -140,16 +286,24 @@ public class AdminController {
             @RequestBody CollegeStaff staff) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.createCollegeStaff(staff));
+
+        return ResponseEntity.ok(
+                service.createCollegeStaff(staff)
+        );
     }
+
 
     @GetMapping("/college-staff")
     public ResponseEntity<?> getAllCollegeStaff(
             @RequestHeader("Authorization") String auth) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getAllCollegeStaff());
+
+        return ResponseEntity.ok(
+                service.getAllCollegeStaff()
+        );
     }
+
 
     @GetMapping("/college-staff/{id}")
     public ResponseEntity<?> getCollegeStaffById(
@@ -157,8 +311,12 @@ public class AdminController {
             @PathVariable Long id) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getCollegeStaffById(id));
+
+        return ResponseEntity.ok(
+                service.getCollegeStaffById(id)
+        );
     }
+
 
     @PutMapping("/college-staff/{id}")
     public ResponseEntity<?> updateCollegeStaff(
@@ -167,8 +325,12 @@ public class AdminController {
             @RequestBody CollegeStaff staff) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.updateCollegeStaff(id, staff));
+
+        return ResponseEntity.ok(
+                service.updateCollegeStaff(id, staff)
+        );
     }
+
 
     @DeleteMapping("/college-staff/{id}")
     public ResponseEntity<?> deleteCollegeStaff(
@@ -176,29 +338,28 @@ public class AdminController {
             @PathVariable Long id) {
 
         service.validateAdminToken(auth);
+
         service.deleteCollegeStaff(id);
+
         return ResponseEntity.ok("Deleted");
     }
 
-    @GetMapping("/staff/pending-approvals")
-    public ResponseEntity<?> getPendingStaff() {
-        return ResponseEntity.ok(service.getPendingStaffRegistrations());
-    }
 
-    @PatchMapping("/staff/{staffId}/approve")
-    public ResponseEntity<?> approveStaff(@PathVariable Long staffId) {
-        return ResponseEntity.ok(service.approveStaffRegistration(staffId));
-    }
-
-    // ================= STUDENTS (NEW) =================
+    // ==========================================================
+    // STUDENTS
+    // ==========================================================
 
     @GetMapping("/students")
     public ResponseEntity<?> getAllStudents(
             @RequestHeader("Authorization") String auth) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getAllStudents());
+
+        return ResponseEntity.ok(
+                service.getAllStudents()
+        );
     }
+
 
     @GetMapping("/students/{id}")
     public ResponseEntity<?> getStudentById(
@@ -206,8 +367,12 @@ public class AdminController {
             @PathVariable Long id) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getStudentById(id));
+
+        return ResponseEntity.ok(
+                service.getStudentById(id)
+        );
     }
+
 
     @GetMapping("/students/email")
     public ResponseEntity<?> getStudentByEmail(
@@ -215,8 +380,12 @@ public class AdminController {
             @RequestParam String email) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getStudentByEmail(email));
+
+        return ResponseEntity.ok(
+                service.getStudentByEmail(email)
+        );
     }
+
 
     @GetMapping("/students/code/{studentId}")
     public ResponseEntity<?> getStudentByStudentId(
@@ -224,8 +393,16 @@ public class AdminController {
             @PathVariable String studentId) {
 
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getStudentByStudentId(studentId));
+
+        return ResponseEntity.ok(
+                service.getStudentByStudentId(studentId)
+        );
     }
+
+
+    // ==========================================================
+    // LEAVE / PERMISSION / HOLIDAY
+    // ==========================================================
 
     @PutMapping("/{adminId}/teamlead-leave/{leaveId}/review")
     public ResponseEntity<?> reviewTeamLeadLeave(
@@ -233,153 +410,256 @@ public class AdminController {
             @PathVariable Long leaveId,
             @RequestParam String status) {
 
-        return ResponseEntity.ok(service.reviewTeamLeadLeave(adminId, leaveId, status));
+        return ResponseEntity.ok(
+                service.reviewTeamLeadLeave(
+                        adminId,
+                        leaveId,
+                        status
+                )
+        );
     }
+
 
     @GetMapping("/teamlead-leaves")
     public ResponseEntity<?> getAllTeamLeadLeaveRequests() {
-        return ResponseEntity.ok(service.getAllTeamLeadLeaveRequests());
+
+        return ResponseEntity.ok(
+                service.getAllTeamLeadLeaveRequests()
+        );
     }
 
-    // FETCH ALL PENDING TEAM LEAD REQUESTS
+
     @GetMapping("/permissions/pending")
-    public ResponseEntity<List<TeamLeadPermission>> getPendingTeamLeadPermissions() {
-        return ResponseEntity.ok(service.getPendingAdminPermissions());
+    public ResponseEntity<List<TeamLeadPermission>>
+    getPendingTeamLeadPermissions() {
+
+        return ResponseEntity.ok(
+                service.getPendingAdminPermissions()
+        );
     }
 
-    // APPROVE TEAM LEAD REQUEST
+
     @PutMapping("/permissions/{permissionId}/approve")
-    public ResponseEntity<Map<String, String>> approveTeamLeadPermission(
+    public ResponseEntity<Map<String, String>>
+    approveTeamLeadPermission(
             @PathVariable Long permissionId) {
-        return ResponseEntity.ok(service.approveTeamLeadPermission(permissionId));
+
+        return ResponseEntity.ok(
+                service.approveTeamLeadPermission(permissionId)
+        );
     }
 
-    // REJECT TEAM LEAD REQUEST
+
     @PutMapping("/permissions/{permissionId}/reject")
-    public ResponseEntity<Map<String, String>> rejectTeamLeadPermission(
+    public ResponseEntity<Map<String, String>>
+    rejectTeamLeadPermission(
             @PathVariable Long permissionId,
             @RequestParam(required = false) String remarks) {
-        return ResponseEntity.ok(service.rejectTeamLeadPermission(permissionId, remarks));
+
+        return ResponseEntity.ok(
+                service.rejectTeamLeadPermission(
+                        permissionId,
+                        remarks
+                )
+        );
     }
+
 
     @PostMapping("/mark-holiday")
     public ResponseEntity<String> markHoliday(
-            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate holidayDate) {
-        return ResponseEntity.ok(attendanceService.markHolidayOD(holidayDate));
+            @RequestParam("date")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate holidayDate) {
+
+        return ResponseEntity.ok(
+                attendanceService.markHolidayOD(holidayDate)
+        );
     }
-    //=============== TASK MANAGEMENT ===================
+
+
+    // ==========================================================
+    // TASK MANAGEMENT
+    // ==========================================================
 
     @PostMapping("/{adminId}/assign-task")
-    public ResponseEntity<?> assignTask(@PathVariable Long adminId,
-                                        @RequestBody TaskRequest request) {
-        return ResponseEntity.ok(service.assignTaskByAdmin(adminId, request));
+    public ResponseEntity<?> assignTask(
+            @PathVariable Long adminId,
+            @RequestBody TaskRequest request) {
+
+        return ResponseEntity.ok(
+                service.assignTaskByAdmin(
+                        adminId,
+                        request
+                )
+        );
     }
+
 
     @GetMapping("/tasks")
-    public ResponseEntity<?> getAllTasks(@RequestHeader("Authorization") String auth) {
+    public ResponseEntity<?> getAllTasks(
+            @RequestHeader("Authorization") String auth) {
+
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getAllTasks());
+
+        return ResponseEntity.ok(
+                service.getAllTasks()
+        );
     }
+
 
     @GetMapping("/tasks/{taskId}")
-    public ResponseEntity<?> getTaskById(@RequestHeader("Authorization") String auth, @PathVariable Long taskId) {
+    public ResponseEntity<?> getTaskById(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable Long taskId) {
+
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.getTaskById(taskId));
+
+        return ResponseEntity.ok(
+                service.getTaskById(taskId)
+        );
     }
+
 
     @PutMapping("/tasks/{taskId}")
-    public ResponseEntity<?> updateTask(@RequestHeader("Authorization") String auth,
-                                        @PathVariable Long taskId,
-                                        @RequestBody TaskAdminUpdateRequest request) {
+    public ResponseEntity<?> updateTask(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable Long taskId,
+            @RequestBody TaskAdminUpdateRequest request) {
+
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.updateTaskAdmin(taskId, request));
+
+        return ResponseEntity.ok(
+                service.updateTaskAdmin(
+                        taskId,
+                        request
+                )
+        );
     }
+
 
     @DeleteMapping("/tasks/{taskId}")
-    public ResponseEntity<?> deleteTask(@RequestHeader("Authorization") String auth, @PathVariable Long taskId) {
+    public ResponseEntity<?> deleteTask(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable Long taskId) {
+
         service.validateAdminToken(auth);
+
         service.deleteTaskByAdmin(taskId);
-        return ResponseEntity.ok("Task deleted successfully");
+
+        return ResponseEntity.ok(
+                "Task deleted successfully"
+        );
     }
+
 
     @PostMapping("/tasks/{taskId}/review")
-    public ResponseEntity<?> reviewTask(@RequestHeader("Authorization") String auth,
-                                        @PathVariable Long taskId,
-                                        @RequestParam Long adminId,
-                                        @RequestBody TaskReviewRequest request) {
+    public ResponseEntity<?> reviewTask(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable Long taskId,
+            @RequestParam Long adminId,
+            @RequestBody TaskReviewRequest request) {
+
         service.validateAdminToken(auth);
-        return ResponseEntity.ok(service.reviewTaskByAdmin(taskId, adminId, request));
+
+        return ResponseEntity.ok(
+                service.reviewTaskByAdmin(
+                        taskId,
+                        adminId,
+                        request
+                )
+        );
     }
 
-    // ================= FORGOT & RESET PASSWORD =================
+
+    // ==========================================================
+    // FORGOT & RESET PASSWORD
+    // ==========================================================
+
     @PostMapping("/forgot-password/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestParam String email) {
-        return ResponseEntity.ok(service.sendOtp(email));
+    public ResponseEntity<?> sendOtp(
+            @RequestParam String email) {
+
+        return ResponseEntity.ok(
+                service.sendOtp(email)
+        );
     }
+
 
     @PostMapping("/forgot-password/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestParam String email, @RequestParam String otp) {
-        return ResponseEntity.ok(service.verifyOtp(email, otp));
+    public ResponseEntity<?> verifyOtp(
+            @RequestParam String email,
+            @RequestParam String otp) {
+
+        return ResponseEntity.ok(
+                service.verifyOtp(email, otp)
+        );
     }
+
 
     @PostMapping("/forgot-password/reset")
     public ResponseEntity<?> resetPassword(
             @RequestParam String email,
             @RequestParam String otp,
             @RequestParam String newPassword) {
-        return ResponseEntity.ok(service.resetPassword(email, otp, newPassword));
+
+        return ResponseEntity.ok(
+                service.resetPassword(
+                        email,
+                        otp,
+                        newPassword
+                )
+        );
     }
 
-    @GetMapping("/dashboard")
-    public ResponseEntity<Map<String, Object>> getDashboardStats() {
-        return ResponseEntity.ok(service.getAdminDashboardStats());
+
+    // ==========================================================
+    // GET LEAVES MAP PER DATE FOR CALENDAR UI
+    // ==========================================================
+
+    @GetMapping("/calendar/leaves")
+    public ResponseEntity<
+            Map<LocalDate, List<Map<String, Object>>>>
+    getCalendarLeaveRegistry(
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate startDate,
+
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate endDate) {
+
+        return ResponseEntity.ok(
+                attendanceService.getLeavesByDateRange(
+                        startDate,
+                        endDate
+                )
+        );
     }
 
-    // ================= BATCH STAFF ASSIGNMENT =================
-    @PostMapping("/{adminId}/training-batches")
-    public ResponseEntity<?> createTrainingBatch(
-            @PathVariable Long adminId,
-            @RequestBody TrainingBatch batch) {
-        try {
-            return ResponseEntity.ok(service.createTrainingBatch(adminId, batch,batch.getCourse().getId(),batch.getOfferedCourse().getId()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
 
-    @PostMapping("/batches/{batchId}/assign-staff")
-    public ResponseEntity<?> assignStaffToBatch(
-            @PathVariable Long batchId,
-            @RequestParam Long staffId) {
-        try {
-            return ResponseEntity.ok(service.assignStaffToBatch(batchId, staffId));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+    // ==========================================================
+    // TOGGLE SATURDAY HOLIDAY RULE
+    // ==========================================================
 
-    @PostMapping("/batches/{batchId}/assign-staff-bulk")
-    public ResponseEntity<?> assignStaffToBatchBulk(
-            @PathVariable Long batchId,
-            @RequestBody List<Long> staffIds) {
-        try {
-            return ResponseEntity.ok(service.assignStaffToBatchBulk(batchId, staffIds));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+    @PostMapping("/schedule/saturday-working")
+    public ResponseEntity<Map<String, String>>
+    toggleSaturdayWorkingShift(
+            @RequestParam("date")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate targetSaturday) {
 
-    // ================= BATCH STUDENT ASSIGNMENT =================
+        String responseMessage =
+                attendanceService.configureSaturdayAsWorkingDay(
+                        targetSaturday
+                );
 
-    @PostMapping("/batches/{batchId}/assign-students")
-    public ResponseEntity<?> assignStudentsToBatch(
-            @PathVariable Long batchId,
-            @RequestBody List<Long> studentIds) {
-        try {
-            return ResponseEntity.ok(service.assignStudentsToBatch(batchId, studentIds));
-        } catch (Exception e) {
-            // Catches any missing resources or validation errors and returns a clean 400 response
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        return ResponseEntity.ok(
+                Map.of(
+                        "status", "SUCCESS",
+                        "message", responseMessage,
+                        "effectiveDate",
+                        targetSaturday.toString()
+                )
+        );
     }
 }

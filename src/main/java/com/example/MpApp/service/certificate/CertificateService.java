@@ -2,12 +2,15 @@ package com.example.MpApp.service.certificate;
 
 import com.example.MpApp.dto.certificate.CertificateDTO;
 import com.example.MpApp.entity.certificate.Certificate;
+import com.example.MpApp.entity.course.Course;
 import com.example.MpApp.entity.course.StudentCourseRegistration;
-import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
+
 import com.example.MpApp.repository.certificate.CertificateRepository;
+import com.example.MpApp.repository.course.CourseRepository;
 import com.example.MpApp.repository.course.StudentCourseRegistrationRepository;
-import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
+
 import com.example.MpApp.service.CloudinaryService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,113 +28,340 @@ public class CertificateService {
     private CertificateRepository certificateRepository;
 
     @Autowired
-    private TrainingBatchRepository batchRepository;
+    private CourseRepository courseRepository;
 
     @Autowired
-    private StudentCourseRegistrationRepository courseRegistrationRepository;
+    private StudentCourseRegistrationRepository
+            courseRegistrationRepository;
 
     @Autowired
     private CloudinaryService cloudinaryService;
 
-    // ================= 1. BULK INITIATE BY BATCH (For Trainers) =================
-    @Transactional
-    public Map<String, String> initiateBatchCertificates(Long batchId) {
-        TrainingBatch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new RuntimeException("Training Batch not found for ID: " + batchId));
 
-        // Use our new bridge query!
-        List<StudentCourseRegistration> registrations = courseRegistrationRepository.findRegistrationsByBatchId(batchId);
+    // =========================================================
+    // 1. INITIATE CERTIFICATES BY COURSE
+    // =========================================================
+
+    @Transactional
+    public Map<String, String>
+    initiateCourseCertificates(Long courseId) {
+
+        Course course =
+                courseRepository.findById(courseId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Course not found for ID: "
+                                                + courseId
+                                )
+                        );
+
+
+        // -----------------------------------------------------
+        // GET REGISTERED STUDENTS
+        // -----------------------------------------------------
+
+        List<StudentCourseRegistration> registrations =
+                courseRegistrationRepository
+                        .findByCourseId(courseId);
+
 
         if (registrations.isEmpty()) {
-            throw new RuntimeException("No valid student course registrations found for this batch.");
+
+            throw new RuntimeException(
+                    "No student registrations found for this course"
+            );
         }
 
-        List<Certificate> certificatesToSave = new ArrayList<>();
 
-        for (StudentCourseRegistration reg : registrations) {
-            Certificate cert = new Certificate();
-            cert.setStudent(reg.getStudent());
-            cert.setTrainingBatch(batch);
-            cert.setCourseRegistration(reg);
-            cert.setRecordType("COURSE");
-            cert.setStatus("PENDING");
+        // -----------------------------------------------------
+        // CREATE CERTIFICATES
+        // -----------------------------------------------------
 
-            certificatesToSave.add(cert);
+        List<Certificate> certificatesToSave =
+                new ArrayList<>();
+
+
+        for (StudentCourseRegistration registration
+                : registrations) {
+
+
+            /*
+             * Don't create another certificate if
+             * one already exists for this registration.
+             */
+
+            boolean alreadyExists =
+                    certificateRepository
+                            .existsByCourseRegistrationIdAndRecordType(
+                                    registration.getId(),
+                                    "COURSE"
+                            );
+
+
+            if (alreadyExists) {
+                continue;
+            }
+
+
+            Certificate certificate =
+                    new Certificate();
+
+
+            certificate.setStudent(
+                    registration.getStudent()
+            );
+
+
+            certificate.setCourseRegistration(
+                    registration
+            );
+
+
+            certificate.setRecordType(
+                    "COURSE"
+            );
+
+
+            certificate.setStatus(
+                    "PENDING"
+            );
+
+
+            certificatesToSave.add(
+                    certificate
+            );
         }
 
-        certificateRepository.saveAll(certificatesToSave);
+
+        // -----------------------------------------------------
+        // SAVE
+        // -----------------------------------------------------
+
+        if (!certificatesToSave.isEmpty()) {
+
+            certificateRepository.saveAll(
+                    certificatesToSave
+            );
+        }
+
 
         return Map.of(
-                "message", "Successfully queued " + certificatesToSave.size() + " PENDING certificates for batch: " + batch.getBatchName()
+                "message",
+                "Successfully queued "
+                        + certificatesToSave.size()
+                        + " PENDING certificates for course: "
+                        + course.getCourseName()
         );
     }
 
-    // Inside CertificateService.java
 
-    public List<CertificateDTO> getAllCertificates() {
-        return certificateRepository.findAllCertificatesFlat();
+    // =========================================================
+    // 2. GET ALL CERTIFICATES
+    // =========================================================
+
+    public List<CertificateDTO>
+    getAllCertificates() {
+
+        return certificateRepository
+                .findAllCertificatesFlat();
     }
 
-    // ================= 2. UPLOAD FILE (For Admins/Designers) =================
+
+    // =========================================================
+    // 3. UPLOAD CERTIFICATE FILE
+    // =========================================================
+
     @Transactional
-    public Map<String, String> uploadCertificateFile(Long certificateId, MultipartFile file) {
-        Certificate cert = certificateRepository.findById(certificateId)
-                .orElseThrow(() -> new RuntimeException("Certificate record not found"));
+    public Map<String, String>
+    uploadCertificateFile(
+            Long certificateId,
+            MultipartFile file) {
 
-        if (file == null || file.isEmpty()) {
-            throw new RuntimeException("File is empty or missing");
+
+        Certificate certificate =
+                certificateRepository.findById(
+                                certificateId
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Certificate record not found"
+                                )
+                        );
+
+
+        if (file == null ||
+                file.isEmpty()) {
+
+            throw new RuntimeException(
+                    "Certificate file is empty or missing"
+            );
         }
 
-        String fileUrl = cloudinaryService.uploadFile(file, "certificates");
 
-        cert.setFileUrl(fileUrl);
-        cert.setStatus("ISSUED");
-        cert.setIssueDate(LocalDate.now());
+        // -----------------------------------------------------
+        // UPLOAD
+        // -----------------------------------------------------
 
-        // Update the registration status back to GENERATED
-        if (cert.getCourseRegistration() != null) {
-            cert.getCourseRegistration().setCertificateStatus("GENERATED");
-            courseRegistrationRepository.save(cert.getCourseRegistration());
+        String fileUrl =
+                cloudinaryService.uploadFile(
+                        file,
+                        "certificates"
+                );
+
+
+        certificate.setFileUrl(
+                fileUrl
+        );
+
+
+        certificate.setStatus(
+                "ISSUED"
+        );
+
+
+        certificate.setIssueDate(
+                LocalDate.now()
+        );
+
+
+        // -----------------------------------------------------
+        // UPDATE COURSE REGISTRATION
+        // -----------------------------------------------------
+
+        if (certificate.getCourseRegistration()
+                != null) {
+
+            StudentCourseRegistration registration =
+                    certificate.getCourseRegistration();
+
+
+            registration.setCertificateStatus(
+                    "GENERATED"
+            );
+
+
+            courseRegistrationRepository.save(
+                    registration
+            );
         }
 
-        certificateRepository.save(cert);
+
+        certificateRepository.save(
+                certificate
+        );
+
 
         return Map.of(
-                "message", "Certificate file uploaded and marked as ISSUED.",
-                "fileUrl", fileUrl
+                "message",
+                "Certificate uploaded and marked as ISSUED",
+                "fileUrl",
+                fileUrl
         );
     }
 
-    // ================= 3. GETTERS =================
-    // ================= 3. GETTERS (UPDATED TO DTO) =================
-    public List<CertificateDTO> getPendingCertificates() {
-        return certificateRepository.findByStatusIgnoreCaseFlat("PENDING");
+
+    // =========================================================
+    // 4. GET PENDING CERTIFICATES
+    // =========================================================
+
+    public List<CertificateDTO>
+    getPendingCertificates() {
+
+        return certificateRepository
+                .findByStatusIgnoreCaseFlat(
+                        "PENDING"
+                );
     }
 
-    public List<CertificateDTO> getCertificatesByBatch(Long batchId) {
-        return certificateRepository.findByTrainingBatchIdFlat(batchId);
+
+    // =========================================================
+    // 5. GET COURSE CERTIFICATES
+    // =========================================================
+
+    public List<CertificateDTO>
+    getCertificatesByCourse(
+            Long courseId) {
+
+        return certificateRepository
+                .findByCourseIdFlat(
+                        courseId
+                );
     }
 
-    public List<CertificateDTO> getStudentCertificates(Long studentId) {
-        return certificateRepository.findByStudentIdFlat(studentId);
+
+    // =========================================================
+    // 6. GET STUDENT CERTIFICATES
+    // =========================================================
+
+    public List<CertificateDTO>
+    getStudentCertificates(
+            Long studentId) {
+
+        return certificateRepository
+                .findByStudentIdFlat(
+                        studentId
+                );
     }
+
+
+    // =========================================================
+    // 7. UPDATE CERTIFICATE STATUS
+    // =========================================================
 
     @Transactional
-    public Map<String, String> updateCertificateStatus(Long id, String status) {
-        Certificate cert = certificateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Certificate record not found"));
+    public Map<String, String>
+    updateCertificateStatus(
+            Long id,
+            String status) {
 
-        cert.setStatus(status);
-        certificateRepository.save(cert);
 
-        return Map.of("message", "Certificate status updated to " + status);
+        Certificate certificate =
+                certificateRepository.findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Certificate record not found"
+                                )
+                        );
+
+
+        certificate.setStatus(
+                status
+        );
+
+
+        certificateRepository.save(
+                certificate
+        );
+
+
+        return Map.of(
+                "message",
+                "Certificate status updated to "
+                        + status
+        );
     }
 
+
+    // =========================================================
+    // 8. DELETE CERTIFICATE
+    // =========================================================
+
     @Transactional
-    public void deleteCertificate(Long id) {
-        if (!certificateRepository.existsById(id)) {
-            throw new RuntimeException("Certificate record not found for ID: " + id);
+    public void deleteCertificate(
+            Long id) {
+
+        if (!certificateRepository
+                .existsById(id)) {
+
+            throw new RuntimeException(
+                    "Certificate record not found for ID: "
+                            + id
+            );
         }
-        certificateRepository.deleteById(id);
+
+
+        certificateRepository.deleteById(
+                id
+        );
     }
 }

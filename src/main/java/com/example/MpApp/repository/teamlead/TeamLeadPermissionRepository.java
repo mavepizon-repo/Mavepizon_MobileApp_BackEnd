@@ -2,27 +2,38 @@ package com.example.MpApp.repository.teamlead;
 
 import com.example.MpApp.entity.teamlead.TeamLeadPermission;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
-public interface TeamLeadPermissionRepository extends JpaRepository<TeamLeadPermission, Long> {
+public interface TeamLeadPermissionRepository
+        extends JpaRepository<TeamLeadPermission, Long> {
 
-    /**
-     * Strictly counts already APPROVED monthly permissions for a specific Team Lead.
-     * Uses EXTRACT to ensure clean SQL translation for PostgreSQL.
+    /*
+     * Count APPROVED permissions for a Team Lead
+     * within a specific calendar month.
      */
-    @Query("SELECT COUNT(p) FROM TeamLeadPermission p WHERE p.teamLead.id = :teamLeadId " +
-            "AND EXTRACT(MONTH FROM p.permissionDate) = :month " +
-            "AND EXTRACT(YEAR FROM p.permissionDate) = :year " +
-            "AND p.status = 'APPROVED'")
-    long countApprovedPermissionsByLeadAndMonth(
-            @Param("teamLeadId") Long teamLeadId,
-            @Param("month") int month,
-            @Param("year") int year);
+    long countByTeamLeadIdAndPermissionDateBetweenAndStatusIgnoreCase(
+            Long teamLeadId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String status
+    );
 
+    /*
+     * Get permissions by status.
+     *
+     * Example:
+     * PENDING
+     * APPROVED
+     * REJECTED
+     */
     List<TeamLeadPermission> findByStatusIgnoreCase(String status);
+
+    /*
+     * Get all permission requests of a Team Lead.
+     */
+    List<TeamLeadPermission> findByTeamLeadId(Long teamLeadId);
 }

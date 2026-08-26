@@ -1,5 +1,6 @@
 package com.example.MpApp.entity.internship;
 
+import com.example.MpApp.entity.student.Student;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
@@ -14,8 +15,9 @@ public class InternshipRegistration {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "student_id", nullable = false)
-    private String studentId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", nullable = false) // Links to the 'id' of the Student table
+    private Student student; // Renamed from studentId for clarity
 
     @Column(name = "full_name", nullable = false)
     private String fullName;
@@ -71,4 +73,5 @@ public class InternshipRegistration {
         this.paymentStatus = "UNPAID";
         this.createdAt = LocalDateTime.now();
     }
+
 }

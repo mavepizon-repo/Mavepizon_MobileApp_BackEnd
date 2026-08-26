@@ -1,8 +1,8 @@
 package com.example.MpApp.controller.certificate;
 
 import com.example.MpApp.dto.certificate.CertificateDTO;
-import com.example.MpApp.entity.certificate.Certificate;
 import com.example.MpApp.service.certificate.CertificateService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,80 +19,193 @@ public class CertificateController {
     @Autowired
     private CertificateService service;
 
-    /*
-     =================================================
-     TRAINER ENDPOINTS
-     =================================================
-     */
 
-    // A Trainer hits this button when the batch is finished to generate PENDING certificates for everyone
-    @PostMapping("/initiate/batch/{batchId}")
-    public ResponseEntity<?> initiateBatchCertificates(@PathVariable Long batchId) {
+    // =========================================================
+    // INITIATE COURSE CERTIFICATES
+    // =========================================================
+
+    @PostMapping("/initiate/course/{courseId}")
+    public ResponseEntity<?> initiateCourseCertificates(
+            @PathVariable Long courseId) {
+
         try {
-            return ResponseEntity.ok(service.initiateBatchCertificates(batchId));
+
+            return ResponseEntity.ok(
+                    service.initiateCourseCertificates(
+                            courseId
+                    )
+            );
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 
-    @GetMapping("/batch/{batchId}")
-    public ResponseEntity<List<CertificateDTO>> getCertificatesByBatch(@PathVariable Long batchId) {
-        return ResponseEntity.ok(service.getCertificatesByBatch(batchId));
+
+    // =========================================================
+    // GET CERTIFICATES BY COURSE
+    // =========================================================
+
+    @GetMapping("/course/{courseId}")
+    public ResponseEntity<List<CertificateDTO>>
+    getCertificatesByCourse(
+            @PathVariable Long courseId) {
+
+        return ResponseEntity.ok(
+                service.getCertificatesByCourse(
+                        courseId
+                )
+        );
     }
+
+
+    // =========================================================
+    // GET PENDING CERTIFICATES
+    // =========================================================
 
     @GetMapping("/pending")
-    public ResponseEntity<List<CertificateDTO>> getPendingCertificates() {
-        return ResponseEntity.ok(service.getPendingCertificates());
+    public ResponseEntity<List<CertificateDTO>>
+    getPendingCertificates() {
+
+        return ResponseEntity.ok(
+                service.getPendingCertificates()
+        );
     }
+
+
+    // =========================================================
+    // GET STUDENT CERTIFICATES
+    // =========================================================
 
     @GetMapping("/student/{studentId}")
-    public ResponseEntity<List<CertificateDTO>> getMyCertificates(@PathVariable Long studentId) {
-        return ResponseEntity.ok(service.getStudentCertificates(studentId));
+    public ResponseEntity<List<CertificateDTO>>
+    getStudentCertificates(
+            @PathVariable Long studentId) {
+
+        return ResponseEntity.ok(
+                service.getStudentCertificates(
+                        studentId
+                )
+        );
     }
 
-    // The Design team uploads the finished PDF/Image here
+
+    // =========================================================
+    // UPLOAD CERTIFICATE FILE
+    // =========================================================
+
     @PostMapping("/{id}/upload")
     public ResponseEntity<?> uploadCertificate(
             @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file")
+            MultipartFile file) {
+
         try {
-            return ResponseEntity.ok(service.uploadCertificateFile(id, file));
+
+            return ResponseEntity.ok(
+                    service.uploadCertificateFile(
+                            id,
+                            file
+                    )
+            );
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 
-    /*
-     =================================================
-     STUDENT ENDPOINTS
-     =================================================
-     */
+
+    // =========================================================
+    // UPDATE CERTIFICATE STATUS
+    // =========================================================
+
     @PutMapping("/status/{id}")
     public ResponseEntity<?> updateStatus(
             @PathVariable Long id,
             @RequestParam String status) {
+
         try {
-            return ResponseEntity.ok(service.updateCertificateStatus(id, status));
+
+            return ResponseEntity.ok(
+                    service.updateCertificateStatus(
+                            id,
+                            status
+                    )
+            );
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 
-    // Inside CertificateController.java
+
+    // =========================================================
+    // GET ALL CERTIFICATES
+    // =========================================================
 
     @GetMapping("/all")
-    public ResponseEntity<List<CertificateDTO>> getAllCertificates() {
-        return ResponseEntity.ok(service.getAllCertificates());
+    public ResponseEntity<List<CertificateDTO>>
+    getAllCertificates() {
+
+        return ResponseEntity.ok(
+                service.getAllCertificates()
+        );
     }
+
+
+    // =========================================================
+    // DELETE CERTIFICATE
+    // =========================================================
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteCertificate(@PathVariable Long id) {
+    public ResponseEntity<?> deleteCertificate(
+            @PathVariable Long id) {
+
         try {
+
             service.deleteCertificate(id);
-            return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message",
+                            "Certificate deleted successfully"
+                    )
+            );
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
-
 }

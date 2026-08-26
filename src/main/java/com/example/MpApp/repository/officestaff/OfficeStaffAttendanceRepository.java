@@ -13,4 +13,5 @@ public interface OfficeStaffAttendanceRepository extends JpaRepository<OfficeSta
     Optional<OfficeStaffAttendance> findByStaffIdAndAttendanceDate(Long staffId, LocalDate date);
     List<OfficeStaffAttendance> findByStaffId(Long staffId);
     boolean existsByAttendanceDate(LocalDate date);
+    List<OfficeStaffAttendance> findByAttendanceDate(LocalDate date);
 }

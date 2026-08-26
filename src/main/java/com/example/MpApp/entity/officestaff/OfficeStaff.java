@@ -3,6 +3,7 @@
     import java.time.LocalDate;
     
     import com.example.MpApp.entity.enums.StaffCategory;
+    import com.fasterxml.jackson.annotation.JsonProperty;
     import jakarta.persistence.*;
     
     @Entity
@@ -32,6 +33,8 @@
         private String approvalStatus = "PENDING"; // Values: PENDING, APPROVED, REJECTED
         private String mobileNumber;
         private String email;
+
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
         private String password;
     
         private String aadhaarFile;

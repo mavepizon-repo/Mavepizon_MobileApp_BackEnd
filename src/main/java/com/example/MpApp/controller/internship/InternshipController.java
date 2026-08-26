@@ -134,4 +134,15 @@ public class InternshipController {
                 "Internship Deleted Successfully"
         );
     }
+
+    @PatchMapping("/{id}/toggle-status")
+    public ResponseEntity<Map<String, Object>> toggleInternshipStatus(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+
+        // Restrict access to Admins or Team Leads
+        validateAdminOrTeamLead(authHeader);
+
+        return ResponseEntity.ok(internshipService.toggleInternshipStatus(id));
+    }
 }

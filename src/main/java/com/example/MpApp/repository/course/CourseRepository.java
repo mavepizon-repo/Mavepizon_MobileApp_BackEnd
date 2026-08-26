@@ -8,10 +8,34 @@ import java.util.Optional;
 public interface CourseRepository
         extends JpaRepository<Course, Long> {
 
-    Optional<Course> findByCourseCode(
-            String courseCode);
+    // =========================================================
+    // FIND BY COURSE CODE
+    // =========================================================
 
-    boolean existsByCourseCode(String courseCode);
+    Optional<Course> findByCourseCode(String courseCode);
 
-    long countByCourseCodeStartingWith(String prefix);
+
+    // =========================================================
+    // FIND BY BATCH ID
+    // =========================================================
+
+    Optional<Course> findByBatchId(String batchId);
+
+
+    // =========================================================
+    // GENERATE NEXT BATCH NUMBER
+    // =========================================================
+
+    long countByBatchIdStartingWith(String prefix);
+
+
+    // =========================================================
+    // GET LAST COURSE
+    // =========================================================
+
+    Optional<Course> findTopByOrderByIdDesc();
+
+    Optional<Course> findTopByCourseCodeStartingWithOrderByCourseCodeDesc(
+            String prefix
+    );
 }

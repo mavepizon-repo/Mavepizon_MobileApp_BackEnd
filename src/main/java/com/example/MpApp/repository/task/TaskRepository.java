@@ -137,4 +137,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Double calculateApprovalRate(@Param("staffId") Long staffId);
 
     void deleteByStaffId(Long staffId);
+
+    // Inside TaskRepository.java
+    long countByTeamLeadId(Long teamLeadId);
+    long countByTeamLeadIdAndStatus(Long teamLeadId, TaskStatus status);
+    // Change 'countByTeamLeadIdIn' to 'countByTeamLeadIdAndStatusIn'
+    long countByTeamLeadIdAndStatusIn(Long teamLeadId, List<TaskStatus> statuses);
+
+    long countByStatus(TaskStatus status);
 }

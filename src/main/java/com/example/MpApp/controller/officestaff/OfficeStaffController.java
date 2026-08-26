@@ -139,4 +139,19 @@ public class OfficeStaffController {
     public ResponseEntity<List<OfficeStaff>> getLeaderboard() {
         return ResponseEntity.ok(service.getLeaderboard());
     }
+
+    // Add this to OfficeStaffController.java
+
+    @PatchMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String oldPassword = request.get("oldPassword");
+        String newPassword = request.get("newPassword");
+
+        // The service method will throw exceptions (IllegalStateException, InvalidCredentialsException)
+        // if the logic fails, which the GlobalExceptionHandler will automatically handle.
+        String message = service.changePassword(email, oldPassword, newPassword);
+
+        return ResponseEntity.ok(Map.of("message", message));
+    }
 }

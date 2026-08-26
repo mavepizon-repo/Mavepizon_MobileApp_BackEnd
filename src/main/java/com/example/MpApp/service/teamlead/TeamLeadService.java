@@ -4,11 +4,9 @@ import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
 import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
 import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
+import com.example.MpApp.dto.teamlead.TeamLeadProfileDTO;
+import com.example.MpApp.entity.OtpEntity;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
-import com.example.MpApp.entity.course.Course;
-import com.example.MpApp.entity.course.OfferedCourse;
-import com.example.MpApp.entity.developer_trainer_staff.BatchStudents;
-import com.example.MpApp.entity.developer_trainer_staff.TrainingBatch;
 import com.example.MpApp.entity.enums.StaffCategory;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.officestaff.OfficeStaffLeave;
@@ -16,23 +14,18 @@ import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
 import com.example.MpApp.entity.student.Student;
 import com.example.MpApp.entity.task.Task;
 import com.example.MpApp.entity.task.TaskReview;
-import com.example.MpApp.entity.task.TaskUpdate;
 import com.example.MpApp.entity.teamlead.TeamLead;
 import com.example.MpApp.entity.teamlead.TeamLeadLeave;
 import com.example.MpApp.entity.teamlead.TeamLeadPermission;
 import com.example.MpApp.exception.DuplicateResourceException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
-import com.example.MpApp.repository.course.CourseRepository;
-import com.example.MpApp.repository.course.OfferedCourseRepository;
-import com.example.MpApp.repository.developer_trainer.BatchStudentRepository;
-import com.example.MpApp.repository.developer_trainer.TrainingBatchRepository;
+import com.example.MpApp.repository.OtpRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
 import com.example.MpApp.repository.task.TaskRepository;
 import com.example.MpApp.repository.task.TaskReviewRepository;
-import com.example.MpApp.repository.task.TaskUpdateRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadLeaveRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadPermissionRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadRepository;
@@ -43,8 +36,8 @@ import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
 import com.example.MpApp.repository.student.StudentRepository;
 
 import com.example.MpApp.service.CloudinaryService;
+import com.example.MpApp.service.EmailService;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -66,7 +59,6 @@ public class TeamLeadService {
     private final TeamLeadRepository repository;
     private final OfficeStaffRepository officeStaffRepository;
     private final TaskRepository taskRepository;
-    private final TaskUpdateRepository taskUpdateRepository;
     private final TaskReviewRepository taskReviewRepository;
     private final StudentRepository studentRepository;
     private final JwtService jwtService;
@@ -76,12 +68,24 @@ public class TeamLeadService {
     private final TeamLeadLeaveRepository teamLeadLeaveRepository;
     private final OfficeStaffPermissionRepository permissionRepository;
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
-    private final TrainingBatchRepository batchRepository;
-    private final BatchStudentRepository batchStudentRepository;
-    private final OfferedCourseRepository offeredCourseRepository;
-    private final CourseRepository courseRepository;
+    private final OtpRepository otpRepository;
 
     private final CloudinaryService cloudinaryService;
+    private final TeamLeadAttendanceService teamLeadAttendanceService;
+    private final EmailService emailService;
+
+    public String extractEmail(String authHeader){
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
+        return email;
+    }
 
     private String generateStaffId(String branch, StaffCategory category) {
         String branchCode = switch (branch.toUpperCase()) {
@@ -110,7 +114,7 @@ public class TeamLeadService {
                 .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email: " + request.getEmail()));
 
         if (!passwordEncoder.matches(request.getPassword(), teamLead.getPassword())) {
-            throw new InvalidCredentialsException("Invalid Password");
+            throw new InvalidCredentialsException("Invalid password. Please try again.");
         }
 
         UserDetails userDetails = User.builder()
@@ -131,15 +135,26 @@ public class TeamLeadService {
         return response;
     }
 
+
     // ---------------- TASK ASSIGNMENT (UPDATED) ----------------
 
     @Transactional
-    public Map<String, String> assignTask(Long teamLeadId, TaskRequest request) {
+    public Map<String, String> assignTask(String authHeader, TaskRequest request) {
+
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
         OfficeStaff staff = officeStaffRepository.findById(request.getStaffId())
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + request.getStaffId()));
 
-        TeamLead lead = repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+        TeamLead lead = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
 
         Task task = new Task();
         task.setTitle(request.getTitle());
@@ -163,12 +178,67 @@ public class TeamLeadService {
         return response;
     }
 
+    public Map<String , String> assignTaskToSome(String authHeader , TaskRequestSome request){
+
+        String email = extractEmail(authHeader);
+
+        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team lead not found for email : " + email)
+        );
+
+        List<Long> staffIds = request.getStaffIds();
+
+        if(staffIds.isEmpty()) throw new IllegalArgumentException("Staff ID is Empty");
+
+        for(Long staffId : staffIds){
+
+            OfficeStaff staff = officeStaffRepository.findById(staffId).orElseThrow(
+                    ()-> new ResourceNotFoundException("Staff not found for ID : " + staffId)
+            );
+
+            Task task = new Task();
+            task.setTitle(request.getTitle());
+            task.setDescription(request.getDescription());
+            task.setAssignedDate(LocalDate.now());
+            task.setDeadline(request.getDeadline());
+            task.setTaskType(request.getTaskType());
+            task.setPriority(request.getPriority());
+            task.setEstimatedHours(request.getEstimatedHours());
+            task.setRemarks(request.getRemarks());
+            task.setStatus(TaskStatus.ASSIGNED);
+            task.setProgress(0);
+            task.setStaff(staff);
+            task.setTeamLead(teamLead);
+
+            Task savedTask = taskRepository.save(task);
+
+
+
+        }
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Tasks Assigned Successfully");
+        return response;
+
+    }
+
     // ---------------- STAFF MANAGEMENT (UPDATED) ----------------
 
     @Transactional
-    public Map<String, String> createStaff(Long teamLeadId, OfficeStaff staff) {
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+    public Map<String, String> createStaff(String authHeader, OfficeStaff staff) {
+
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
+
+        repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for Email: " + email));
 
         if (officeStaffRepository.findByEmail(staff.getEmail()).isPresent()) {
             throw new DuplicateResourceException("Email Already Exists: " + staff.getEmail());
@@ -249,9 +319,6 @@ public class TeamLeadService {
         // Delete tasks
         taskRepository.deleteByStaffId(staffId);
 
-        // Remove trainer from batches
-        batchRepository.clearTrainer(staffId);
-
         // Finally delete staff
         officeStaffRepository.delete(staff);
     }
@@ -289,8 +356,14 @@ public class TeamLeadService {
         taskRepository.delete(task);
     }
 
-    // UNCHANGED GET METHOD
-    public List<TaskResponse> getAllTasksByTeamLead(Long teamLeadId) {
+    //GET TASKS CREATED BY TEAM LEAD
+    public List<TaskResponse> getAllTasksByTeamLead(String authHeader) {
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
+        );
+
+        Long teamLeadId = teamLead.getId();
         return taskRepository.findTasksByTeamLead(teamLeadId);
     }
 
@@ -616,80 +689,132 @@ public class TeamLeadService {
     }
 
     @Transactional
-    public Map<String, String> requestPermissionToAdmin(Long teamLeadId, TeamLeadPermissionRequestDTO dto) {
-        // 1. Fetch Team Lead details
-        TeamLead teamLead=repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead record not found for ID: " + teamLeadId));
+    public Map<String, String> requestPermissionToAdmin(
+            Long teamLeadId,
+            TeamLeadPermissionRequestDTO dto) {
 
-        // 2. Extract Month and Year
-        int month = dto.getPermissionDate().getMonthValue();
-        int year = dto.getPermissionDate().getYear();
+        // 1. Find Team Lead
+        TeamLead teamLead = repository.findById(teamLeadId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Team Lead record not found for ID: " + teamLeadId));
 
-        // 3. Check current month's APPROVED quota
-        long approvedCount = teamLeadPermissionRepository.countApprovedPermissionsByLeadAndMonth(teamLeadId, month, year);
-
-        if (approvedCount >= 2) {
-            throw new IllegalStateException("Monthly quota exceeded. Team Leads in the " + teamLead.getBranch() +
-                    " branch are strictly limited to a maximum of 2 approved permissions per calendar month.");
+        // 2. Validate permission date
+        if (dto.getPermissionDate() == null) {
+            throw new IllegalArgumentException("Permission date is required");
         }
 
-        // 4. Save permission request
+        // 3. Calculate the calendar month range
+        LocalDate permissionDate = dto.getPermissionDate();
+        LocalDate startDate = permissionDate.withDayOfMonth(1);
+        LocalDate endDate = permissionDate.withDayOfMonth(permissionDate.lengthOfMonth());
+
+        // 4. Count already APPROVED permissions for this Team Lead
+        //    in the requested calendar month
+        long approvedCount = teamLeadPermissionRepository
+                .countByTeamLeadIdAndPermissionDateBetweenAndStatusIgnoreCase(
+                        teamLeadId,
+                        startDate,
+                        endDate,
+                        "APPROVED"
+                );
+
+        // 5. Maximum 2 approved permissions per month
+        if (approvedCount >= 2) {
+            throw new IllegalStateException(
+                    "Monthly quota exceeded. Team Lead in the "
+                            + teamLead.getBranch()
+                            + " branch is limited to a maximum of "
+                            + "2 approved permissions per calendar month."
+            );
+        }
+
+        // 6. Create a new PENDING permission request
         TeamLeadPermission permission = new TeamLeadPermission();
         permission.setTeamLead(teamLead);
-        permission.setPermissionDate(dto.getPermissionDate());
+        permission.setPermissionDate(permissionDate);
         permission.setDurationHours(dto.getDurationHours());
         permission.setReason(dto.getReason());
         permission.setStatus("PENDING");
 
+        // 7. Save request
         teamLeadPermissionRepository.save(permission);
 
+        // 8. Response
         Map<String, String> response = new HashMap<>();
         response.put("status", "PENDING");
-        response.put("message", "Permission request submitted to Admin successfully.");
+        response.put(
+                "message",
+                "Permission request submitted to Admin successfully."
+        );
+
         return response;
+    }
+
+    // Inside TeamLeadService.java
+
+    public List<TeamLeadLeave> getMyLeaveHistory(Long teamLeadId) {
+        return teamLeadLeaveRepository.findByTeamLeadId(teamLeadId);
+    }
+
+    public List<TeamLeadPermission> getMyPermissionHistory(Long teamLeadId) {
+        return teamLeadPermissionRepository.findByTeamLeadId(teamLeadId);
     }
     // Inject your required repositories (e.g., teamLeadRepository, officeStaffRepository)
 
     // Add this map at the class level of TeamLeadService
     private final Map<String, String> otpStorage = new HashMap<>();
 
+    @Transactional
     public String sendOtp(String email) {
         TeamLead leader = repository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email Not Found"));
 
         String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
-        otpStorage.put(email, otp);
-        System.out.println("OTP for Team Lead (" + email + ") is: " + otp);
-        return "OTP sent successfully";
+
+        // Clear existing to ensure only the latest OTP is valid
+        otpRepository.deleteByEmail(email);
+
+        OtpEntity otpEntity = new OtpEntity();
+        otpEntity.setEmail(email);
+        otpEntity.setOtpCode(otp);
+        otpEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+        otpRepository.save(otpEntity);
+
+        emailService.sendOtpEmail(email, otp);
+        return "OTP sent successfully to your registered email.";
     }
 
     public String verifyOtp(String email, String otp) {
-        if (!otpStorage.containsKey(email)) {
-            throw new RuntimeException("OTP not requested");
+        OtpEntity otpEntity = otpRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("OTP not requested"));
+
+        if (otpEntity.getExpiryTime().isBefore(LocalDateTime.now())) {
+            otpRepository.deleteByEmail(email);
+            throw new RuntimeException("OTP has expired");
         }
-        if (!otpStorage.get(email).equals(otp)) {
+
+        if (!otpEntity.getOtpCode().equals(otp)) {
             throw new RuntimeException("Invalid OTP");
         }
+
         return "OTP Verified Successfully";
     }
 
+    @Transactional
     public String resetPassword(String email, String otp, String newPassword) {
-        if (!otpStorage.containsKey(email)) {
-            throw new RuntimeException("OTP not requested");
-        }
-        if (!otpStorage.get(email).equals(otp)) {
-            throw new RuntimeException("Invalid OTP");
-        }
+        // Verify OTP via the same logic or a shared helper
+        verifyOtp(email, otp);
 
         TeamLead leader = repository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email Not Found"));
 
         leader.setPassword(passwordEncoder.encode(newPassword));
         repository.save(leader);
-        otpStorage.remove(email);
+
+        // OTP is consumed upon successful reset
+        otpRepository.deleteByEmail(email);
         return "Password Reset Successful";
     }
-
     public String changePassword(String email, String oldPassword, String newPassword) {
         // 1. Find the Team Lead
         TeamLead teamLead = repository.findByEmail(email)
@@ -716,160 +841,6 @@ public class TeamLeadService {
         return Map.of("message", "Staff account state updated to " + (active ? "ACTIVE" : "INACTIVE"));
     }
 
-    // ================= TRAINING BATCH CREATION (TEAM LEAD) =================
-
-    @Transactional
-    public Map<String, String> createTrainingBatchTL(Long teamLeadId, TrainingBatch batch) {
-        TeamLead tl = repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead context missing for ID: " + teamLeadId));
-
-        String tlBranch = tl.getBranch().trim().toUpperCase();
-
-        // If a trainer is provided in the creation payload, validate their branch assignment location
-        if (batch.getTrainer() != null && batch.getTrainer().getId() != null) {
-            OfficeStaff trainer = officeStaffRepository.findById(batch.getTrainer().getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Assigned trainer footprint missing."));
-
-            String trainerBranch = trainer.getBranch() != null ? trainer.getBranch().trim().toUpperCase() : "";
-
-            if (!trainerBranch.equals(tlBranch)) {
-                throw new IllegalArgumentException("Access Denied! You cannot create a batch assigned to a trainer from the " + trainerBranch + " branch.");
-            }
-        }
-
-        TrainingBatch savedBatch = batchRepository.save(batch);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("batchId", savedBatch.getId().toString());
-        response.put("batchName", savedBatch.getBatchName());
-        response.put("message", "Training Batch Created Successfully by Team Lead under branch context: " + tlBranch);
-        return response;
-    }
-
-    @Transactional
-    public Map<String, String> createTrainingBatch(Long teamleadId, TrainingBatch batch, Long courseId, Long offeredCourseId) {
-        repository.findById(teamleadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Admin validation context missing for ID: " + teamleadId));
-
-        // Link Course if provided
-        if (courseId != null) {
-            Course course = courseRepository.findById(courseId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found for ID: " + courseId));
-            batch.setCourse(course);
-        } else {
-            batch.setCourse(null);
-        }
-
-        // Link OfferedCourse if provided
-        if (offeredCourseId != null) {
-            OfferedCourse offeredCourse = offeredCourseRepository.findById(offeredCourseId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Offered Course not found for ID: " + offeredCourseId));
-            batch.setOfferedCourse(offeredCourse);
-        } else {
-            batch.setOfferedCourse(null);
-        }
-
-        TrainingBatch savedBatch = batchRepository.save(batch);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("batchId", savedBatch.getId().toString());
-        response.put("batchName", savedBatch.getBatchName());
-        response.put("message", "Training Batch Created Successfully");
-        return response;
-    }
-
-    /**
-     * Branch-guarded method for filtering and setting bulk-notified staff identifiers to a batch context.
-     */
-    @Transactional
-    public Map<String, String> assignStaffToBatchBulk(Long teamLeadId, Long batchId, List<Long> staffIds) {
-        if (staffIds == null || staffIds.isEmpty()) {
-            throw new IllegalArgumentException("Bulk identification list can't be empty.");
-        }
-
-        TeamLead leader = repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
-        String tlBranch = leader.getBranch();
-
-        TrainingBatch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new ResourceNotFoundException("Training batch not found for ID: " + batchId));
-
-        List<OfficeStaff> staffList = officeStaffRepository.findAllById(staffIds);
-
-        // Enforce location validation across every record in the array selection payload
-        for (OfficeStaff staff : staffList) {
-            if (!tlBranch.equalsIgnoreCase(staff.getBranch())) {
-                throw new IllegalArgumentException(String.format(
-                        "Access Denied! Staff member '%s' belongs to a different branch office (%s).",
-                        staff.getName(), staff.getBranch()));
-            }
-        }
-
-        // Set primary matching element as active trainer reference
-        OfficeStaff primaryChoice = staffList.get(0);
-        batch.setTrainer(primaryChoice);
-        batchRepository.save(batch);
-
-        return Map.of(
-                "status", "SUCCESS",
-                "message", String.format("Bulk check approved for %s branch. Trainer '%s' assigned to Batch.",
-                        tlBranch, primaryChoice.getName())
-        );
-    }
-
-    // ================= BATCH STUDENT ASSIGNMENT (TEAM LEAD) =================
-
-    @Transactional
-    public Map<String, String> assignStudentsToBatch(Long batchId, List<Long> studentIds) {
-
-        if (studentIds == null || studentIds.isEmpty()) {
-            throw new IllegalArgumentException("Student ID list cannot be empty.");
-        }
-
-        // 1. Resolve training batch
-        TrainingBatch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new RuntimeException("Training batch not found for ID: " + batchId));
-
-        // 2. Process student enrollments
-        List<BatchStudents> newEnrollments = new ArrayList<>();
-        int successfullyAdded = 0;
-        int skippedDuplicates = 0;
-
-        for (Long studentId : studentIds) {
-            // Check for duplicates to prevent DB constraint violations
-            if (batchStudentRepository.existsByBatchIdAndStudentId(batchId, studentId)) {
-                skippedDuplicates++;
-                continue;
-            }
-
-            // Fetch the student
-            Student student = studentRepository.findById(studentId)
-                    .orElseThrow(() -> new RuntimeException("Student not found for ID: " + studentId));
-
-            // Create the enrollment mapping
-            BatchStudents enrollment = new BatchStudents();
-            enrollment.setBatch(batch);
-            enrollment.setStudent(student);
-            enrollment.setEnrolledDate(java.time.LocalDate.now());
-
-            newEnrollments.add(enrollment);
-            successfullyAdded++;
-        }
-
-        // 3. Bulk save valid enrollments
-        if (!newEnrollments.isEmpty()) {
-            batchStudentRepository.saveAll(newEnrollments);
-        }
-
-        return Map.of(
-                "status", "SUCCESS",
-                "message", "Batch student assignment complete.",
-                "studentsAdded", String.valueOf(successfullyAdded),
-                "skippedDuplicates", String.valueOf(skippedDuplicates),
-                "batchName", batch.getBatchName()
-        );
-    }
-
     public OfficeStaff getStaffById(Long teamLeadId, Long staffId) {
         // 1. Verify Team Lead exists
         repository.findById(teamLeadId)
@@ -878,5 +849,49 @@ public class TeamLeadService {
         // 2. Fetch and return the staff member
         return officeStaffRepository.findById(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + staffId));
+    }
+
+    public TeamLeadProfileDTO getTeamLeadProfile(Long teamLeadId) {
+        TeamLead tl = repository.findById(teamLeadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+
+        TeamLeadProfileDTO dto = new TeamLeadProfileDTO();
+        dto.setId(tl.getId());
+        dto.setName(tl.getName());
+        dto.setTeamLeadId(tl.getTeamLeadId());
+        dto.setBranch(tl.getBranch());
+        dto.setEmail(tl.getEmail());
+        dto.setMobileNumber(tl.getMobileNumber());
+        dto.setRole(tl.getRole());
+        dto.setProfilePhoto(tl.getProfilePhoto());
+        dto.setPerformanceScore(tl.getScore());
+        dto.setActive(tl.getActive());
+
+        return dto;
+    }
+
+    public Map<String, Object> getTeamLeadDashboardStats(Long teamLeadId) {
+        Map<String, Object> stats = new HashMap<>();
+
+        // 1. Task Analytics
+        long totalTasks = taskRepository.countByTeamLeadId(teamLeadId);
+        long completedTasks = taskRepository.countByTeamLeadIdAndStatus(teamLeadId, TaskStatus.COMPLETED);
+        long pendingTasks = totalTasks - completedTasks;
+
+        // 2. Batch Analytics
+        // TrainingBatch is no longer managed by TeamLeadService.
+        // Course creation and staff assignment are handled by
+        // CourseService and CourseStaffAssignmentService.
+
+        // 3. Attendance Summary (using your AttendanceService)
+        double attendancePercent = teamLeadAttendanceService.calculateAttendancePercentage(teamLeadId);
+
+        stats.put("totalTasks", totalTasks);
+        stats.put("completedTasks", completedTasks);
+        stats.put("pendingTasks", pendingTasks);
+        stats.put("attendancePercentage", attendancePercent);
+        stats.put("systemStatus", "OPERATIONAL");
+
+        return stats;
     }
 }

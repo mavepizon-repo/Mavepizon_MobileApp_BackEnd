@@ -73,7 +73,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // ================= PUBLIC =================
                         .requestMatchers(
                                 "/api/admin/register",
@@ -116,8 +116,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/collegestaff/**").hasRole("COLLEGE_STAFF")
 
                         // ================= CERTIFICATES =================
-                        .requestMatchers("/api/certificates/**").hasAnyRole("ADMIN", "TEAM_LEAD", "OFFICE_STAFF", "COLLEGE_STAFF", "STUDENT")
-
+                        // Replace the broad Certificate entry in SecurityConfig with this:
+                        .requestMatchers(HttpMethod.POST, "/api/certificates/initiate/**").hasAnyRole("ADMIN", "TEAM_LEAD", "OFFICE_STAFF")
+                        .requestMatchers(HttpMethod.POST, "/api/certificates/*/upload").hasAnyRole("ADMIN", "TEAM_LEAD")
+                        .requestMatchers(HttpMethod.DELETE, "/api/certificates/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/certificates/student/**").hasAnyRole("STUDENT", "ADMIN", "TEAM_LEAD")
+                        .requestMatchers(HttpMethod.GET, "/api/certificates/**").hasAnyRole("ADMIN", "TEAM_LEAD", "OFFICE_STAFF", "COLLEGE_STAFF")
                         // ================= COURSE =================
                         .requestMatchers(
                                 "/api/course/create",
@@ -141,6 +145,19 @@ public class SecurityConfig {
                         .requestMatchers("/api/cash-payment/create", "/api/cash-payment/my-payments").hasRole("STUDENT")
                         .requestMatchers("/api/cash-payment/get-all", "/api/cash-payment/get/**", "/api/cash-payment/status/**", "/api/cash-payment/staff/**", "/api/cash-payment/approve/**", "/api/cash-payment/reject/**")
                         .hasAnyRole("OFFICE_STAFF", "ADMIN")
+                                // ================= INTERNSHIPS =================
+// Use {id} instead of ** for specific IDs to avoid the pattern matching error
+                                .requestMatchers(HttpMethod.POST, "/api/internships").hasAnyRole("ADMIN", "TEAM_LEAD")
+                                .requestMatchers(HttpMethod.PUT, "/api/internships/*").hasAnyRole("ADMIN", "TEAM_LEAD")
+                                .requestMatchers(HttpMethod.DELETE, "/api/internships/*").hasRole("ADMIN")
+
+// FIX: Change middle wildcard to single wildcard or path variable
+// to ensure the pattern is valid for the PathPatternParser
+                                .requestMatchers(HttpMethod.PATCH, "/api/internships/*/toggle-status").hasAnyRole("ADMIN", "TEAM_LEAD")
+
+// Students can register and view
+                                .requestMatchers(HttpMethod.POST, "/api/internships/register").hasRole("STUDENT")
+                                .requestMatchers(HttpMethod.GET, "/api/internships/**").permitAll()
 
                         .anyRequest().authenticated()
                 )

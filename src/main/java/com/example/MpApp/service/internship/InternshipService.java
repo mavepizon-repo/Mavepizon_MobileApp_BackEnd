@@ -189,4 +189,31 @@ public class InternshipService {
 
         internshipRepository.delete(internship);
     }
+
+    /*
+    ===================================
+    TOGGLE INTERNSHIP STATUS (OPEN / CLOSED)
+    ===================================
+    */
+    @Transactional
+    public Map<String, Object> toggleInternshipStatus(Long id) {
+        Internship internship = internshipRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Internship not found with ID: " + id));
+
+        // Normalize status check or fallback to CLOSED if null
+        String currentStatus = internship.getStatus() != null ? internship.getStatus().toUpperCase() : "CLOSED";
+        String newStatus = "OPEN".equals(currentStatus) ? "CLOSED" : "OPEN";
+
+        internship.setStatus(newStatus);
+        internshipRepository.save(internship);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("internshipId", internship.getId());
+        response.put("previousStatus", currentStatus);
+        response.put("newStatus", newStatus);
+        response.put("message", "Internship status toggled successfully to " + newStatus);
+
+        return response;
+    }
 }

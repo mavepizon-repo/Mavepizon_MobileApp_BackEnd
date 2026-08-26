@@ -193,4 +193,56 @@ public class OfficeStaffAttendanceService {
 
         return ((double) presentDays / totalDays) * 100;
     }
+    /*
+    ===================================
+    4. GET LEAVES GROUPED BY DATE
+    ===================================
+    */
+    public Map<LocalDate, java.util.List<Map<String, Object>>> getLeavesByDateRange(LocalDate start, LocalDate end) {
+        // Fetch all attendance entries marked as absent/on leave within the calendar viewing boundary
+        List<OfficeStaffAttendance> records = attendanceRepository.findAll(); // Or create a date-bounded repository query
+
+        Map<LocalDate, java.util.List<Map<String, Object>>> leaveCalendar = new java.util.HashMap<>();
+
+        records.stream()
+                .filter(a -> a.getAttendanceDate() != null &&
+                        !a.getAttendanceDate().isBefore(start) && !a.getAttendanceDate().isAfter(end))
+                .filter(a -> "LEAVE".equalsIgnoreCase(a.getStatus()) || "ABSENT".equalsIgnoreCase(a.getStatus()))
+                .forEach(record -> {
+                    LocalDate date = record.getAttendanceDate();
+                    leaveCalendar.putIfAbsent(date, new java.util.ArrayList<>());
+
+                    Map<String, Object> staffDetails = new java.util.HashMap<>();
+                    staffDetails.put("staffId", record.getStaff().getId());
+                    staffDetails.put("name", record.getStaff().getName());
+                    staffDetails.put("category", record.getStaff().getCategory());
+                    staffDetails.put("status", record.getStatus());
+
+                    leaveCalendar.get(date).add(staffDetails);
+                });
+
+        return leaveCalendar;
+    }
+
+    /*
+    ===================================
+    5. FORCE SATURDAY AS WORKING DAY
+    ===================================
+    */
+    @Transactional
+    public String configureSaturdayAsWorkingDay(LocalDate targetSaturday) {
+        if (targetSaturday.getDayOfWeek() != java.time.DayOfWeek.SATURDAY) {
+            throw new IllegalArgumentException("The specified date must fall explicitly on a Saturday.");
+        }
+
+        // Clean out any existing structural default "OD" or auto-holiday indicators mapped to this target date window
+        Optional<List<OfficeStaffAttendance>> existingHolidays =
+                Optional.ofNullable(attendanceRepository.findByAttendanceDate(targetSaturday)); // Depends on repo mapping
+
+        existingHolidays.ifPresent(records -> records.stream()
+                .filter(a -> "OD".equalsIgnoreCase(a.getStatus()))
+                .forEach(attendanceRepository::delete));
+
+        return "Saturday schedule modified successfully! " + targetSaturday + " is registered as an active mandatory business operations shift.";
+    }
 }

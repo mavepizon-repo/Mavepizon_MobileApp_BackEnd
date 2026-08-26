@@ -9,15 +9,44 @@ import java.util.List;
 
 @Repository
 public interface StudentAttendanceRepository
-        extends JpaRepository<StudentAttendance,Long> {
+        extends JpaRepository<StudentAttendance, Long> {
 
-    Long countByBatchIdAndAttendanceDateAndPresent(
-            Long batchId,
+
+    // =========================================================
+    // GET ATTENDANCE BY COURSE
+    // =========================================================
+
+    List<StudentAttendance> findByCourseId(
+            Long courseId
+    );
+
+
+    // =========================================================
+    // COUNT PRESENT STUDENTS FOR A COURSE ON A DATE
+    // =========================================================
+
+    Long countByCourseIdAndAttendanceDateAndPresent(
+            Long courseId,
             LocalDate attendanceDate,
-            Boolean present);
+            Boolean present
+    );
 
-    List<StudentAttendance>
-    findByBatchId(Long batchId);
 
-    Long countByAttendanceDate(LocalDate attendanceDate);
+    // =========================================================
+    // GET ATTENDANCE FOR A COURSE ON A PARTICULAR DATE
+    // =========================================================
+
+    List<StudentAttendance> findByCourseIdAndAttendanceDate(
+            Long courseId,
+            LocalDate attendanceDate
+    );
+
+
+    // =========================================================
+    // COUNT ATTENDANCE RECORDS FOR A DATE
+    // =========================================================
+
+    Long countByAttendanceDate(
+            LocalDate attendanceDate
+    );
 }

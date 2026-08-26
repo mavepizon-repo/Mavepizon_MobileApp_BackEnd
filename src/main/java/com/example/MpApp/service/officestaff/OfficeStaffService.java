@@ -2,9 +2,12 @@ package com.example.MpApp.service.officestaff;
 
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.officestaff.*;
+import com.example.MpApp.entity.OtpEntity;
 import com.example.MpApp.entity.officestaff.OfficeStaffLeave;
 import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
+import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
+import com.example.MpApp.repository.OtpRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
@@ -17,6 +20,7 @@ import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.task.Task;
 import com.example.MpApp.entity.task.TaskUpdate;
 import com.example.MpApp.entity.enums.TaskStatus;
+import com.example.MpApp.service.EmailService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
@@ -40,8 +44,10 @@ public class OfficeStaffService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final OfficeStaffLeaveRepository leaveRepository;
     private final OfficeStaffPermissionRepository permissionRepository;
+    private final OtpRepository otpRepository;
 
     private final OfficeStaffAttendanceService attendanceService;
+    private final EmailService emailService;
 
     // LOGIN
 
@@ -243,46 +249,83 @@ public class OfficeStaffService {
     // Add this map at the class level of OfficeStaffService
     private final Map<String, String> otpStorage = new HashMap<>();
 
+    @Transactional
     public String sendOtp(String email) {
         OfficeStaff staff = repository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email Not Found"));
 
         String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
-        otpStorage.put(email, otp);
-        System.out.println("OTP for Office Staff (" + email + ") is: " + otp);
-        return "OTP sent successfully";
+
+        // Clear any existing OTP
+        otpRepository.deleteByEmail(email);
+
+        // Store in DB
+        OtpEntity otpEntity = new OtpEntity();
+        otpEntity.setEmail(email);
+        otpEntity.setOtpCode(otp);
+        otpEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+        otpRepository.save(otpEntity);
+
+        emailService.sendOtpEmail(email, otp);
+        return "OTP sent successfully to your registered email.";
     }
 
     public String verifyOtp(String email, String otp) {
-        if (!otpStorage.containsKey(email)) {
-            throw new RuntimeException("OTP not requested");
+        OtpEntity otpEntity = otpRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("OTP not requested"));
+
+        if (otpEntity.getExpiryTime().isBefore(LocalDateTime.now())) {
+            otpRepository.deleteByEmail(email);
+            throw new RuntimeException("OTP has expired");
         }
-        if (!otpStorage.get(email).equals(otp)) {
+
+        if (!otpEntity.getOtpCode().equals(otp)) {
             throw new RuntimeException("Invalid OTP");
         }
+
         return "OTP Verified Successfully";
     }
 
+    @Transactional
     public String resetPassword(String email, String otp, String newPassword) {
-        if (!otpStorage.containsKey(email)) {
-            throw new RuntimeException("OTP not requested");
-        }
-        if (!otpStorage.get(email).equals(otp)) {
-            throw new RuntimeException("Invalid OTP");
-        }
+        // Reuse verification logic
+        verifyOtp(email, otp);
 
         OfficeStaff staff = repository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email Not Found"));
 
         staff.setPassword(passwordEncoder.encode(newPassword));
         repository.save(staff);
-        otpStorage.remove(email);
+
+        // Consume OTP
+        otpRepository.deleteByEmail(email);
         return "Password Reset Successful";
     }
-
     public FileViewResponse getStaffFiles(Long id) {
         OfficeStaff staff = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Staff Member Not Found"));
         return new FileViewResponse(staff.getProfilePhoto(), staff.getAadhaarFile(), staff.getResumeFile());
+    }
+
+    @Transactional
+    public String changePassword(String email, String oldPassword, String newPassword) {
+        OfficeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found for email: " + email));
+
+        // 1. Verify the old password is correct
+        if (!passwordEncoder.matches(oldPassword, staff.getPassword())) {
+            throw new InvalidCredentialsException("Invalid Old Password");
+        }
+
+        // 2. SECURITY CHECK: Prevent using the old password as the new one
+        if (passwordEncoder.matches(newPassword, staff.getPassword())) {
+            throw new IllegalStateException("New password cannot be the same as your old password.");
+        }
+
+        // 3. Encrypt and set the new password
+        staff.setPassword(passwordEncoder.encode(newPassword));
+        repository.save(staff);
+
+        return "Password Changed Successfully";
     }
 }

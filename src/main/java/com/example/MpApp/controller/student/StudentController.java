@@ -3,13 +3,16 @@ package com.example.MpApp.controller.student;
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.student.StudentLoginRequest;
 import com.example.MpApp.dto.student.StudentRegisterRequest;
+import com.example.MpApp.entity.student.Notification;
 import com.example.MpApp.entity.student.Student;
+import com.example.MpApp.service.student.NotificationService;
 import com.example.MpApp.service.student.StudentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -18,6 +21,9 @@ public class StudentController {
 
     @Autowired
     private StudentService service;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // ================= REGISTER =================
     @PostMapping("/register")
@@ -31,6 +37,11 @@ public class StudentController {
             @PathVariable Long id,
             @RequestParam(value = "profile", required = false) MultipartFile profile) {
         return ResponseEntity.ok(service.updateStudentFiles(id, profile));
+    }
+
+    @GetMapping("/{studentId}/dashboard")
+    public ResponseEntity<Map<String, Object>> getDashboard(@PathVariable Long studentId) {
+        return ResponseEntity.ok(service.getStudentDashboard(studentId));
     }
 
     // 📥 Retrieval Endpoint
@@ -77,5 +88,31 @@ public class StudentController {
             @PathVariable Long id,
             @RequestBody Student student) {
         return ResponseEntity.ok(service.updateProfile(id, student));
+    }
+
+    @GetMapping("/{studentId}/notifications")
+    public ResponseEntity<List<Notification>> getNotifications(@PathVariable Long studentId) {
+        return ResponseEntity.ok(notificationService.getNotificationsByStudent(studentId));
+    }
+
+    @PatchMapping("/notifications/{notificationId}/read")
+    public ResponseEntity<?> markAsRead(@PathVariable Long notificationId) {
+        notificationService.markAsRead(notificationId);
+        return ResponseEntity.ok(Map.of("message", "Notification marked as read"));
+    }
+
+    // Inside StudentController.java
+
+    @PatchMapping("/{studentId}/change-password")
+    public ResponseEntity<?> changePassword(
+            @PathVariable Long studentId,
+            @RequestBody Map<String, String> request) {
+
+        String oldPassword = request.get("oldPassword");
+        String newPassword = request.get("newPassword");
+
+        String message = service.changePassword(studentId, oldPassword, newPassword);
+
+        return ResponseEntity.ok(Map.of("message", message));
     }
 }

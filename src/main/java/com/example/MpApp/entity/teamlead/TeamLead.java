@@ -1,9 +1,11 @@
 package com.example.MpApp.entity.teamlead;
 
-import java.time.LocalDate;
-
 import com.example.MpApp.entity.admin.Admin;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "team_lead")
@@ -14,25 +16,42 @@ public class TeamLead {
     private Long id;
 
     private String name;
-    @Column(unique = true)
+
+    @Column(unique = true, nullable = false)
     private String teamLeadId;
+
     private String branch;
+
     private String gender;
+
     private LocalDate dob;
+
     private String role;
+
     private LocalDate joiningDate;
+
     private String nativePlace;
+
     private String degree;
+
     private Integer yearPassedOut;
+
     private String mobileNumber;
+
+    @Column(unique = true, nullable = false)
     private String email;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     private String aadhaarFile;
+
     private String profilePhoto;
+
     private String resumeFile;
 
     private Integer experience;
+
     private String previousCompany;
 
     private Integer score = 100;
@@ -40,16 +59,27 @@ public class TeamLead {
     @Column(length = 1000)
     private String skills;
 
-    // ✅ FIXED RELATIONSHIP
+    /*
+    =========================================
+    CREATED BY ADMIN
+    =========================================
+    */
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_admin_id")
+    @JsonIgnore
     private Admin createdByAdmin;
+
+    /*
+    =========================================
+    STATUS
+    =========================================
+    */
 
     private Boolean active = true;
 
-    public TeamLead() {}
-
-    // ---------------- GETTERS & SETTERS ----------------
+    public TeamLead() {
+    }
 
     public Long getId() {
         return id;
@@ -65,6 +95,22 @@ public class TeamLead {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getTeamLeadId() {
+        return teamLeadId;
+    }
+
+    public void setTeamLeadId(String teamLeadId) {
+        this.teamLeadId = teamLeadId;
+    }
+
+    public String getBranch() {
+        return branch;
+    }
+
+    public void setBranch(String branch) {
+        this.branch = branch;
     }
 
     public String getGender() {
@@ -139,6 +185,7 @@ public class TeamLead {
         this.email = email;
     }
 
+    @JsonIgnore
     public String getPassword() {
         return password;
     }
@@ -203,6 +250,7 @@ public class TeamLead {
         this.skills = skills;
     }
 
+    @JsonIgnore
     public Admin getCreatedByAdmin() {
         return createdByAdmin;
     }
@@ -223,19 +271,7 @@ public class TeamLead {
         return Boolean.TRUE.equals(active);
     }
 
-    public String getTeamLeadId() {
-        return teamLeadId;
-    }
-
-    public void setTeamLeadId(String teamLeadId) {
-        this.teamLeadId = teamLeadId;
-    }
-
-    public String getBranch() {
-        return branch;
-    }
-
-    public void setBranch(String branch) {
-        this.branch = branch;
+    public Integer getPerformanceScore() {
+        return score;
     }
 }
