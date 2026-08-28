@@ -2,12 +2,15 @@ package com.example.MpApp.service.officestaff;
 
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.officestaff.*;
+import com.example.MpApp.dto.task.TaskUpdateResponse;
 import com.example.MpApp.entity.OtpEntity;
+import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.officestaff.OfficeStaffLeave;
 import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.OtpRepository;
+import com.example.MpApp.repository.admin.AdminRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
@@ -23,6 +26,9 @@ import com.example.MpApp.entity.enums.TaskStatus;
 import com.example.MpApp.service.EmailService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -48,6 +54,19 @@ public class OfficeStaffService {
 
     private final OfficeStaffAttendanceService attendanceService;
     private final EmailService emailService;
+
+    public String getMyRole() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        assert authentication != null;
+        return authentication.getAuthorities()
+                .stream()
+                .findFirst()
+                .map(GrantedAuthority::getAuthority)
+                .orElse("NO_ROLE");
+    }
 
 
 
@@ -88,10 +107,13 @@ public class OfficeStaffService {
 
         String token = jwtService.generateToken(userDetails);
 
+        String role = "OFFICE_STAFF";
+
         return Map.of(
                 "staffId", staff.getId().toString(),
                 "email", staff.getEmail(),
-                "token", token
+                "token", token,
+                "role" , role
         );
     }
 
@@ -105,9 +127,11 @@ public class OfficeStaffService {
         return taskRepository.findTasksByStaff(staff.getId());
     }
 
-    public TaskResponse updateProgress(Long taskId,String authHeader , TaskUpdateRequest request) {
+    public TaskUpdateResponse updateProgress(Long taskId, String authHeader , TaskUpdateRequest request) {
 
         String email = extractEmail(authHeader);
+
+        String role = getMyRole();
 
         OfficeStaff staff = repository.findByEmail(email).orElseThrow(
                 () -> new ResourceNotFoundException("Staff not found for email: " + email)
@@ -136,7 +160,7 @@ public class OfficeStaffService {
 
         Task tasks =  taskRepository.save(task);
 
-        TaskResponse response = new TaskResponse();
+        TaskUpdateResponse response = new TaskUpdateResponse();
 
         response.setTaskId(tasks.getId());
         response.setTitle(tasks.getTitle());
@@ -152,9 +176,16 @@ public class OfficeStaffService {
         response.setStaffName(tasks.getStaff().getName());
         response.setStaffRole(String.valueOf(tasks.getStaff().getCategory()));
         response.setStaffIdCode(tasks.getStaff().getStaffId());
-        response.setTeamLeadId(tasks.getTeamLead().getId());
-        response.setTeamLeadName(tasks.getTeamLead().getName());
-        response.setTeamLeadIdCode(tasks.getTeamLead().getTeamLeadId());
+        if (tasks.getTeamLead() == null) {
+
+            Admin admin = tasks.getAdmin();
+            response.setCreatedBy(admin.getEmail());
+            response.setCreatorRole("ADMIN");
+        }else{
+            response.setCreatedBy(tasks.getTeamLead().getEmail());
+            response.setCreatorRole("TEAM_LEAD");
+        }
+
 
         return response;
 

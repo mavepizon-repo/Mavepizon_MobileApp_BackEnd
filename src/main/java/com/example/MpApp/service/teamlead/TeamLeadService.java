@@ -175,8 +175,11 @@ public class TeamLeadService {
         OfficeStaff staff = officeStaffRepository.findById(request.getStaffId())
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found for ID: " + request.getStaffId()));
 
-        TeamLead lead = repository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+
+
+        String role = getMyRole();
+
+
 
         Task task = new Task();
         task.setTitle(request.getTitle());
@@ -190,7 +193,21 @@ public class TeamLeadService {
         task.setStatus(TaskStatus.ASSIGNED);
         task.setProgress(0);
         task.setStaff(staff);
-        task.setTeamLead(lead);
+        if(role.equals("ROLE_ADMIN")){
+            Admin admin = adminRepository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+            );
+
+            task.setAdmin(admin);
+
+        } else if (role.equals("ROLE_TEAM_LEAD")) {
+            TeamLead lead = repository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+
+            task.setTeamLead(lead);
+
+        }
+
 
         Task savedTask = taskRepository.save(task);
 
@@ -200,13 +217,13 @@ public class TeamLeadService {
         return response;
     }
 
+
+
     public Map<String , String> assignTaskToSome(String authHeader , TaskRequestSome request){
 
         String email = extractEmail(authHeader);
 
-        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
-                () -> new ResourceNotFoundException("Team lead not found for email : " + email)
-        );
+        String role = getMyRole();
 
         List<Long> staffIds = request.getStaffIds();
 
@@ -230,7 +247,23 @@ public class TeamLeadService {
             task.setStatus(TaskStatus.ASSIGNED);
             task.setProgress(0);
             task.setStaff(staff);
-            task.setTeamLead(teamLead);
+
+            if(role.equals("ROLE_ADMIN")){
+                Admin admin = adminRepository.findByEmail(email).orElseThrow(
+                        () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+                );
+
+                task.setAdmin(admin);
+
+
+
+            } else if (role.equals("ROLE_TEAM_LEAD")) {
+                TeamLead lead = repository.findByEmail(email)
+                        .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+
+                task.setTeamLead(lead);
+
+            }
 
             taskRepository.save(task);
 
@@ -244,13 +277,31 @@ public class TeamLeadService {
 
     }
 
-    //ASSIGN WORK TO ALL STAFF
+    //ASSIGN WORK TO ALL STAFF CREATED BY PARTICULR USER WHICH THEY LOGGEDIN
     public Map<String,String> assignWorkToAllStaff(String authHeader , TaskRequest request) {
         String email = extractEmail(authHeader);
-        TeamLead teamLead = repository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+        String role = getMyRole();
 
-        List<OfficeStaff> allStaff = officeStaffRepository.findByCreatedByIdAndType(teamLead.getId(),"TEAM_LEAD");
+
+        List<OfficeStaff> allStaff = List.of();
+
+        if(role.equals("ROLE_ADMIN")){
+            Admin admin = adminRepository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+            );
+
+            allStaff = officeStaffRepository.findByCreatedByIdAndType(admin.getId(),"ADMIN");
+
+
+        } else if (role.equals("ROLE_TEAM_LEAD")) {
+            TeamLead lead = repository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+
+            allStaff = officeStaffRepository.findByCreatedByIdAndType(lead.getId(),"TEAM_LEAD");
+
+
+
+        }
 
         for(OfficeStaff staff : allStaff){
 
@@ -266,7 +317,23 @@ public class TeamLeadService {
             task.setStatus(TaskStatus.ASSIGNED);
             task.setProgress(0);
             task.setStaff(staff);
-            task.setTeamLead(teamLead);
+            if(role.equals("ROLE_ADMIN")){
+                Admin admin = adminRepository.findByEmail(email).orElseThrow(
+                        () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+                );
+
+                task.setAdmin(admin);
+
+
+
+            } else if (role.equals("ROLE_TEAM_LEAD")) {
+                TeamLead lead = repository.findByEmail(email)
+                        .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for email : " + email));
+
+                task.setTeamLead(lead);
+
+            }
+
 
             taskRepository.save(task);
 

@@ -1,9 +1,13 @@
 package com.example.MpApp.entity.course;
 
 import jakarta.persistence.*;
+import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+
+
 
 @Entity
 @Table(
@@ -12,6 +16,7 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(columnNames = "courseCode")
         }
 )
+@Data
 public class Course {
 
     @Id
@@ -36,6 +41,8 @@ public class Course {
     private String description;
 
     private String duration;
+
+    private Category category;
 
 
     // =========================================================
@@ -282,311 +289,4 @@ public class Course {
     // GETTERS AND SETTERS
     // =========================================================
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getBatchId() {
-        return batchId;
-    }
-
-    public void setBatchId(String batchId) {
-        this.batchId = batchId;
-    }
-
-
-    public String getCourseCode() {
-        return courseCode;
-    }
-
-    public void setCourseCode(String courseCode) {
-        this.courseCode = courseCode;
-    }
-
-
-    public String getCourseName() {
-        return courseName;
-    }
-
-    public void setCourseName(String courseName) {
-        this.courseName = courseName;
-    }
-
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-
-    public String getDuration() {
-        return duration;
-    }
-
-    public void setDuration(String duration) {
-        this.duration = duration;
-    }
-
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
-
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
-    }
-
-
-    public LocalDate getRegistrationStartDate() {
-        return registrationStartDate;
-    }
-
-    public void setRegistrationStartDate(
-            LocalDate registrationStartDate) {
-
-        this.registrationStartDate =
-                registrationStartDate;
-    }
-
-
-    public LocalDate getRegistrationEndDate() {
-        return registrationEndDate;
-    }
-
-    public void setRegistrationEndDate(
-            LocalDate registrationEndDate) {
-
-        this.registrationEndDate =
-                registrationEndDate;
-    }
-
-
-    public Double getTotalFees() {
-        return totalFees;
-    }
-
-    public void setTotalFees(Double totalFees) {
-        this.totalFees = totalFees;
-    }
-
-
-    public Double getRegistrationFees() {
-        return registrationFees;
-    }
-
-    public void setRegistrationFees(
-            Double registrationFees) {
-
-        this.registrationFees =
-                registrationFees;
-    }
-
-
-    public Integer getTotalSeatsOnline() {
-        return totalSeatsOnline;
-    }
-
-    public void setTotalSeatsOnline(
-            Integer totalSeatsOnline) {
-
-        this.totalSeatsOnline =
-                totalSeatsOnline;
-    }
-
-
-    public Integer getRegisteredSeatsOnline() {
-        return registeredSeatsOnline;
-    }
-
-    public void setRegisteredSeatsOnline(
-            Integer registeredSeatsOnline) {
-
-        this.registeredSeatsOnline =
-                registeredSeatsOnline;
-    }
-
-
-    public Integer getAvailableSeatsOnline() {
-        return availableSeatsOnline;
-    }
-
-    public void setAvailableSeatsOnline(
-            Integer availableSeatsOnline) {
-
-        this.availableSeatsOnline =
-                availableSeatsOnline;
-    }
-
-
-    public Integer getTotalSeatsOffline() {
-        return totalSeatsOffline;
-    }
-
-    public void setTotalSeatsOffline(
-            Integer totalSeatsOffline) {
-
-        this.totalSeatsOffline =
-                totalSeatsOffline;
-    }
-
-
-    public Integer getRegisteredSeatsOffline() {
-        return registeredSeatsOffline;
-    }
-
-    public void setRegisteredSeatsOffline(
-            Integer registeredSeatsOffline) {
-
-        this.registeredSeatsOffline =
-                registeredSeatsOffline;
-    }
-
-
-    public Integer getAvailableSeatsOffline() {
-        return availableSeatsOffline;
-    }
-
-    public void setAvailableSeatsOffline(
-            Integer availableSeatsOffline) {
-
-        this.availableSeatsOffline =
-                availableSeatsOffline;
-    }
-
-
-    public Integer getTotalSeatsTirunelveli() {
-        return totalSeatsTirunelveli;
-    }
-
-    public void setTotalSeatsTirunelveli(
-            Integer totalSeatsTirunelveli) {
-
-        this.totalSeatsTirunelveli =
-                totalSeatsTirunelveli;
-    }
-
-
-    public Integer getRegisteredSeatsTirunelveli() {
-        return registeredSeatsTirunelveli;
-    }
-
-    public void setRegisteredSeatsTirunelveli(
-            Integer registeredSeatsTirunelveli) {
-
-        this.registeredSeatsTirunelveli =
-                registeredSeatsTirunelveli;
-    }
-
-
-    public Integer getAvailableSeatsTirunelveli() {
-        return availableSeatsTirunelveli;
-    }
-
-    public void setAvailableSeatsTirunelveli(
-            Integer availableSeatsTirunelveli) {
-
-        this.availableSeatsTirunelveli =
-                availableSeatsTirunelveli;
-    }
-
-
-    public Integer getTotalSeatsTisaiyanvilai() {
-        return totalSeatsTisaiyanvilai;
-    }
-
-    public void setTotalSeatsTisaiyanvilai(
-            Integer totalSeatsTisaiyanvilai) {
-
-        this.totalSeatsTisaiyanvilai =
-                totalSeatsTisaiyanvilai;
-    }
-
-
-    public Integer getRegisteredSeatsTisaiyanvilai() {
-        return registeredSeatsTisaiyanvilai;
-    }
-
-    public void setRegisteredSeatsTisaiyanvilai(
-            Integer registeredSeatsTisaiyanvilai) {
-
-        this.registeredSeatsTisaiyanvilai =
-                registeredSeatsTisaiyanvilai;
-    }
-
-
-    public Integer getAvailableSeatsTisaiyanvilai() {
-        return availableSeatsTisaiyanvilai;
-    }
-
-    public void setAvailableSeatsTisaiyanvilai(
-            Integer availableSeatsTisaiyanvilai) {
-
-        this.availableSeatsTisaiyanvilai =
-                availableSeatsTisaiyanvilai;
-    }
-
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-
-    public String getZoomLink() {
-        return zoomLink;
-    }
-
-    public void setZoomLink(String zoomLink) {
-        this.zoomLink = zoomLink;
-    }
-
-
-    public String getCreatedBy() {
-        return createdBy;
-    }
-
-    public void setCreatedBy(String createdBy) {
-        this.createdBy = createdBy;
-    }
-
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(
-            LocalDateTime createdAt) {
-
-        this.createdAt = createdAt;
-    }
-
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(
-            LocalDateTime updatedAt) {
-
-        this.updatedAt = updatedAt;
-    }
 }

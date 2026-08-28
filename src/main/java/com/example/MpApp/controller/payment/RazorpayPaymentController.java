@@ -78,7 +78,8 @@ public class RazorpayPaymentController {
             String authHeader,
 
             @RequestBody
-            VerifyRazorpayPaymentRequest request) {
+            VerifyRazorpayPaymentRequest request
+    ) {
 
         if (authHeader == null ||
                 !authHeader.startsWith("Bearer ")) {

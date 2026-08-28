@@ -16,37 +16,34 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
-public class CourseService {
+public class InternshipService {
 
     @Autowired
     private CourseRepository repository;
 
 
     // =========================================================
-    // GENERATE COURSE CODE
+    // GENERATE INTERNSHIP CODE
     // =========================================================
     /*
      * Format:
      *
-     * MPCO1001
-     * MPCO1002
-     * MPCO1003
-     *
-     * Course code is generated automatically.
-     * Frontend must NOT send courseCode.
+     * MPIN1001
+     * MPIN1002
+     * MPIN1003
      */
-    private String generateCourseCode() {
+    private String generateInternshipCode() {
 
-        Optional<Course> lastCourse =
-                repository.findTopByCourseCodeStartingWithOrderByCourseCodeDesc("MPCO");
+        Optional<Course> lastInternship =
+                repository.findTopByCourseCodeStartingWithOrderByCourseCodeDesc("MPIN");
 
         long nextNumber = 1001;
 
-        if (lastCourse.isPresent()
-                && lastCourse.get().getCourseCode() != null) {
+        if (lastInternship.isPresent()
+                && lastInternship.get().getCourseCode() != null) {
 
             String lastCode =
-                    lastCourse.get().getCourseCode();
+                    lastInternship.get().getCourseCode();
 
             try {
 
@@ -59,12 +56,12 @@ public class CourseService {
             } catch (NumberFormatException e) {
 
                 throw new RuntimeException(
-                        "Invalid existing course code format: " + lastCode
+                        "Invalid existing internship code format: " + lastCode
                 );
             }
         }
 
-        return "MPCO" + nextNumber;
+        return "MPIN" + nextNumber;
     }
 
 
@@ -74,50 +71,41 @@ public class CourseService {
     /*
      * Format:
      *
-     * MAV-FULL-2026-01
-     * MAV-PYTHON-2026-01
-     * MAV-FLUTTER-2026-01
+     * MAV-INTRN-2026-01
      *
-     * One Course = One complete Batch.
-     *
-     * Batch ID does NOT depend on:
-     *
-     * ONLINE
-     * TIRUNELVELI
-     * TISAIYANVILAI
-     *
-     * Those are registration/staff assignment categories.
+     * Derived the same way as Course: from the
+     * internship name (courseName field, reused).
      */
-    private String generateBatchId(Course course) {
+    private String generateBatchId(Course internship) {
 
-        if (course.getCourseName() == null
-                || course.getCourseName().isBlank()) {
+        if (internship.getCourseName() == null
+                || internship.getCourseName().isBlank()) {
 
             throw new IllegalArgumentException(
-                    "Course Name is required"
+                    "Internship Name is required"
             );
         }
 
-        String coursePart =
-                course.getCourseName()
+        String namePart =
+                internship.getCourseName()
                         .trim()
                         .toUpperCase()
                         .replaceAll("[^A-Z0-9]", "");
 
-        if (coursePart.length() > 6) {
+        if (namePart.length() > 6) {
 
-            coursePart =
-                    coursePart.substring(0, 6);
+            namePart =
+                    namePart.substring(0, 6);
         }
 
         int year =
-                course.getStartDate() != null
-                        ? course.getStartDate().getYear()
+                internship.getStartDate() != null
+                        ? internship.getStartDate().getYear()
                         : LocalDate.now().getYear();
 
         String prefix =
                 "MAV-" +
-                        coursePart +
+                        namePart +
                         "-" +
                         year +
                         "-";
@@ -134,58 +122,58 @@ public class CourseService {
 
 
     // =========================================================
-    // CREATE COURSE
+    // CREATE INTERNSHIP
     // =========================================================
 
     @Transactional
-    public Map<String, String> createCourse(
-            Course course) {
+    public Map<String, String> createInternship(
+            Course internship) {
 
         // -----------------------------------------------------
         // BASIC VALIDATION
         // -----------------------------------------------------
 
-        if (course == null) {
+        if (internship == null) {
 
             throw new IllegalArgumentException(
-                    "Course data is required"
+                    "Internship data is required"
             );
         }
 
 
         // -----------------------------------------------------
-        // COURSE NAME
+        // INTERNSHIP NAME
         // -----------------------------------------------------
 
-        if (course.getCourseName() == null
-                || course.getCourseName().isBlank()) {
+        if (internship.getCourseName() == null
+                || internship.getCourseName().isBlank()) {
 
             throw new IllegalArgumentException(
-                    "Course Name is required"
+                    "Internship Name is required"
             );
         }
 
 
         // -----------------------------------------------------
-        // COURSE DATES
+        // DATES
         // -----------------------------------------------------
 
-        if (course.getStartDate() == null) {
+        if (internship.getStartDate() == null) {
 
             throw new IllegalArgumentException(
                     "Start Date is required"
             );
         }
 
-        if (course.getEndDate() == null) {
+        if (internship.getEndDate() == null) {
 
             throw new IllegalArgumentException(
                     "End Date is required"
             );
         }
 
-        if (course.getStartDate()
-                .isAfter(course.getEndDate())) {
+        if (internship.getStartDate()
+                .isAfter(internship.getEndDate())) {
 
             throw new IllegalArgumentException(
                     "Start Date cannot be after End Date"
@@ -197,23 +185,23 @@ public class CourseService {
         // REGISTRATION DATES
         // -----------------------------------------------------
 
-        if (course.getRegistrationStartDate() == null) {
+        if (internship.getRegistrationStartDate() == null) {
 
             throw new IllegalArgumentException(
                     "Registration Start Date is required"
             );
         }
 
-        if (course.getRegistrationEndDate() == null) {
+        if (internship.getRegistrationEndDate() == null) {
 
             throw new IllegalArgumentException(
                     "Registration End Date is required"
             );
         }
 
-        if (course.getRegistrationStartDate()
+        if (internship.getRegistrationStartDate()
                 .isAfter(
-                        course.getRegistrationEndDate()
+                        internship.getRegistrationEndDate()
                 )) {
 
             throw new IllegalArgumentException(
@@ -221,11 +209,11 @@ public class CourseService {
             );
         }
 
-        if (course.getRegistrationEndDate()
-                .isAfter(course.getStartDate())) {
+        if (internship.getRegistrationEndDate()
+                .isAfter(internship.getStartDate())) {
 
             throw new IllegalArgumentException(
-                    "Registration End Date cannot be after Course Start Date"
+                    "Registration End Date cannot be after Internship Start Date"
             );
         }
 
@@ -234,35 +222,28 @@ public class CourseService {
         // FEES
         // -----------------------------------------------------
 
-        if (course.getTotalFees() == null
-                || course.getTotalFees() < 0) {
+        if (internship.getTotalFees() == null
+                || internship.getTotalFees() < 0) {
 
             throw new IllegalArgumentException(
                     "Valid Total Fee is required"
             );
         }
 
-
-        /*
-         * Registration fee = 30% of total fee.
-         *
-         * Frontend must NOT calculate this.
-         */
-
         double registrationFee =
-                course.getTotalFees() * 0.10;
+                internship.getTotalFees() * 0.10;
 
-        course.setRegistrationFees(
+        internship.setRegistrationFees(
                 registrationFee
         );
 
 
         // -----------------------------------------------------
-        // COURSE CODE
+        // INTERNSHIP CODE
         // -----------------------------------------------------
 
-        course.setCourseCode(
-                generateCourseCode()
+        internship.setCourseCode(
+                generateInternshipCode()
         );
 
 
@@ -270,8 +251,8 @@ public class CourseService {
         // BATCH ID
         // -----------------------------------------------------
 
-        course.setBatchId(
-                generateBatchId(course)
+        internship.setBatchId(
+                generateBatchId(internship)
         );
 
 
@@ -279,47 +260,47 @@ public class CourseService {
         // SEAT VALIDATION
         // -----------------------------------------------------
 
-        validateSeats(course);
+        validateSeats(internship);
 
 
         // -----------------------------------------------------
         // INITIAL REGISTERED COUNTS
         // -----------------------------------------------------
 
-        course.setRegisteredSeatsOnline(0);
+        internship.setRegisteredSeatsOnline(0);
 
-        course.setRegisteredSeatsOffline(0);
+        internship.setRegisteredSeatsOffline(0);
 
-        course.setRegisteredSeatsTirunelveli(0);
+        internship.setRegisteredSeatsTirunelveli(0);
 
-        course.setRegisteredSeatsTisaiyanvilai(0);
+        internship.setRegisteredSeatsTisaiyanvilai(0);
 
 
         // -----------------------------------------------------
         // INITIAL AVAILABLE COUNTS
         // -----------------------------------------------------
 
-        course.setAvailableSeatsOnline(
+        internship.setAvailableSeatsOnline(
                 safeValue(
-                        course.getTotalSeatsOnline()
+                        internship.getTotalSeatsOnline()
                 )
         );
 
-        course.setAvailableSeatsOffline(
+        internship.setAvailableSeatsOffline(
                 safeValue(
-                        course.getTotalSeatsOffline()
+                        internship.getTotalSeatsOffline()
                 )
         );
 
-        course.setAvailableSeatsTirunelveli(
+        internship.setAvailableSeatsTirunelveli(
                 safeValue(
-                        course.getTotalSeatsTirunelveli()
+                        internship.getTotalSeatsTirunelveli()
                 )
         );
 
-        course.setAvailableSeatsTisaiyanvilai(
+        internship.setAvailableSeatsTisaiyanvilai(
                 safeValue(
-                        course.getTotalSeatsTisaiyanvilai()
+                        internship.getTotalSeatsTisaiyanvilai()
                 )
         );
 
@@ -328,29 +309,29 @@ public class CourseService {
         // STATUS
         // -----------------------------------------------------
 
-        if (course.getStatus() == null
-                || course.getStatus().isBlank()) {
+        if (internship.getStatus() == null
+                || internship.getStatus().isBlank()) {
 
-            course.setStatus("ACTIVE");
+            internship.setStatus("ACTIVE");
 
         } else {
 
-            course.setStatus(
-                    course.getStatus()
+            internship.setStatus(
+                    internship.getStatus()
                             .trim()
                             .toUpperCase()
             );
         }
 
-        course.setCategory(Category.COURSE);
+        internship.setCategory(Category.INTERNSHIP);
 
 
         // -----------------------------------------------------
         // SAVE
         // -----------------------------------------------------
 
-        Course savedCourse =
-                repository.save(course);
+        Course savedInternship =
+                repository.save(internship);
 
 
         // -----------------------------------------------------
@@ -361,23 +342,23 @@ public class CourseService {
                 new HashMap<>();
 
         response.put(
-                "courseId",
-                savedCourse.getId().toString()
+                "internshipId",
+                savedInternship.getId().toString()
         );
 
         response.put(
-                "courseCode",
-                savedCourse.getCourseCode()
+                "internshipCode",
+                savedInternship.getCourseCode()
         );
 
         response.put(
                 "batchId",
-                savedCourse.getBatchId()
+                savedInternship.getBatchId()
         );
 
         response.put(
                 "message",
-                "Course Created Successfully"
+                "Internship Created Successfully"
         );
 
         return response;
@@ -388,19 +369,19 @@ public class CourseService {
     // VALIDATE SEATS
     // =========================================================
 
-    private void validateSeats(Course course) {
+    private void validateSeats(Course internship) {
 
         Integer online =
-                course.getTotalSeatsOnline();
+                internship.getTotalSeatsOnline();
 
         Integer offline =
-                course.getTotalSeatsOffline();
+                internship.getTotalSeatsOffline();
 
         Integer tirunelveli =
-                course.getTotalSeatsTirunelveli();
+                internship.getTotalSeatsTirunelveli();
 
         Integer tisaiyanvilai =
-                course.getTotalSeatsTisaiyanvilai();
+                internship.getTotalSeatsTisaiyanvilai();
 
 
         if (online == null) {
@@ -486,15 +467,15 @@ public class CourseService {
         // NORMALIZED VALUES
         // -----------------------------------------------------
 
-        course.setTotalSeatsOnline(online);
+        internship.setTotalSeatsOnline(online);
 
-        course.setTotalSeatsOffline(offline);
+        internship.setTotalSeatsOffline(offline);
 
-        course.setTotalSeatsTirunelveli(
+        internship.setTotalSeatsTirunelveli(
                 tirunelveli
         );
 
-        course.setTotalSeatsTisaiyanvilai(
+        internship.setTotalSeatsTisaiyanvilai(
                 tisaiyanvilai
         );
     }
@@ -513,12 +494,14 @@ public class CourseService {
 
 
     // =========================================================
-    // GET ALL COURSES
+    // GET ALL INTERNSHIPS
     // =========================================================
 
-    public List<Course> getAllCourses() {
+    public List<Course> getAllInternships() {
 
-        return repository.findAll();
+        return repository.findByCategory(
+                Category.INTERNSHIP
+        );
     }
 
 
@@ -526,12 +509,15 @@ public class CourseService {
     // GET BY DATABASE ID
     // =========================================================
 
-    public Course getCourseById(Long id) {
+    public Course getInternshipById(Long id) {
 
-        return repository.findById(id)
+        return repository.findByIdAndCategory(
+                        id,
+                        Category.INTERNSHIP
+                )
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
-                                "Course Not Found"
+                                "Internship Not Found"
                         )
                 );
     }
@@ -541,7 +527,7 @@ public class CourseService {
     // GET BY BATCH ID
     // =========================================================
 
-    public Optional<Course> getCourseByBatchId(
+    public Optional<Course> getInternshipByBatchId(
             String batchId) {
 
         if (batchId == null
@@ -552,95 +538,75 @@ public class CourseService {
             );
         }
 
-        return repository.findByBatchId(
-                batchId.trim()
+        return repository.findByBatchIdAndCategory(
+                batchId.trim(),
+                Category.INTERNSHIP
         );
     }
 
 
     // =========================================================
-    // GET BY COURSE CODE
+    // GET BY INTERNSHIP CODE
     // =========================================================
 
-    public Optional<Course> getCourseByCourseCode(
-            String courseCode) {
+    public Optional<Course> getInternshipByCode(
+            String internshipCode) {
 
-        if (courseCode == null
-                || courseCode.isBlank()) {
+        if (internshipCode == null
+                || internshipCode.isBlank()) {
 
             throw new IllegalArgumentException(
-                    "Course Code is required"
+                    "Internship Code is required"
             );
         }
 
-        return repository.findByCourseCode(
-                courseCode.trim()
+        return repository.findByCourseCodeAndCategory(
+                internshipCode.trim(),
+                Category.INTERNSHIP
         );
     }
 
 
     // =========================================================
-    // UPDATE COURSE
+    // UPDATE INTERNSHIP
     // =========================================================
     /*
-     * Course code cannot be changed.
+     * Internship code cannot be changed.
      * Batch ID cannot be changed.
      *
      * Trainer and Zoom Link are NOT handled here.
-     *
-     * Staff assignment is handled by:
-     * CourseStaffAssignmentService
      */
 
     @Transactional
-    public Map<String, String> updateCourse(
+    public Map<String, String> updateInternship(
             Long id,
-            Course course) {
+            Course internship) {
 
         // -----------------------------------------------------
-        // FIND EXISTING COURSE
+        // FIND EXISTING INTERNSHIP (scoped to category)
         // -----------------------------------------------------
 
         Course existing =
-                repository.findById(id)
+                repository.findByIdAndCategory(
+                                id,
+                                Category.INTERNSHIP
+                        )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Course Not Found"
+                                        "Internship Not Found"
                                 )
                         );
 
 
         // -----------------------------------------------------
-        // COURSE CODE
-        // -----------------------------------------------------
-        /*
-         * Intentionally ignored.
-         *
-         * Example:
-         * MPCO1001 remains MPCO1001.
-         */
-
-
-        // -----------------------------------------------------
-        // BATCH ID
-        // -----------------------------------------------------
-        /*
-         * Intentionally ignored.
-         *
-         * Example:
-         * MAV-FULL-2026-01 remains unchanged.
-         */
-
-
-        // -----------------------------------------------------
-        // COURSE NAME
+        // NAME
         // -----------------------------------------------------
 
-        if (course.getCourseName() != null
-                && !course.getCourseName().isBlank()) {
+        if (internship.getCourseName() != null
+                && !internship.getCourseName().isBlank()) {
 
             existing.setCourseName(
-                    course.getCourseName()
+                    internship.getCourseName()
             );
         }
 
@@ -649,10 +615,10 @@ public class CourseService {
         // DESCRIPTION
         // -----------------------------------------------------
 
-        if (course.getDescription() != null) {
+        if (internship.getDescription() != null) {
 
             existing.setDescription(
-                    course.getDescription()
+                    internship.getDescription()
             );
         }
 
@@ -661,29 +627,29 @@ public class CourseService {
         // DURATION
         // -----------------------------------------------------
 
-        if (course.getDuration() != null) {
+        if (internship.getDuration() != null) {
 
             existing.setDuration(
-                    course.getDuration()
+                    internship.getDuration()
             );
         }
 
 
         // -----------------------------------------------------
-        // COURSE DATES
+        // DATES
         // -----------------------------------------------------
 
-        if (course.getStartDate() != null) {
+        if (internship.getStartDate() != null) {
 
             existing.setStartDate(
-                    course.getStartDate()
+                    internship.getStartDate()
             );
         }
 
-        if (course.getEndDate() != null) {
+        if (internship.getEndDate() != null) {
 
             existing.setEndDate(
-                    course.getEndDate()
+                    internship.getEndDate()
             );
         }
 
@@ -692,17 +658,17 @@ public class CourseService {
         // REGISTRATION DATES
         // -----------------------------------------------------
 
-        if (course.getRegistrationStartDate() != null) {
+        if (internship.getRegistrationStartDate() != null) {
 
             existing.setRegistrationStartDate(
-                    course.getRegistrationStartDate()
+                    internship.getRegistrationStartDate()
             );
         }
 
-        if (course.getRegistrationEndDate() != null) {
+        if (internship.getRegistrationEndDate() != null) {
 
             existing.setRegistrationEndDate(
-                    course.getRegistrationEndDate()
+                    internship.getRegistrationEndDate()
             );
         }
 
@@ -718,9 +684,9 @@ public class CourseService {
         // FEES
         // -----------------------------------------------------
 
-        if (course.getTotalFees() != null) {
+        if (internship.getTotalFees() != null) {
 
-            if (course.getTotalFees() < 0) {
+            if (internship.getTotalFees() < 0) {
 
                 throw new IllegalArgumentException(
                         "Total Fee cannot be negative"
@@ -728,11 +694,11 @@ public class CourseService {
             }
 
             existing.setTotalFees(
-                    course.getTotalFees()
+                    internship.getTotalFees()
             );
 
             existing.setRegistrationFees(
-                    course.getTotalFees() * 0.30
+                    internship.getTotalFees() * 0.30
             );
         }
 
@@ -741,7 +707,7 @@ public class CourseService {
         // ONLINE SEATS
         // -----------------------------------------------------
 
-        if (course.getTotalSeatsOnline() != null) {
+        if (internship.getTotalSeatsOnline() != null) {
 
             int registered =
                     safeValue(
@@ -750,7 +716,7 @@ public class CourseService {
                     );
 
             int newTotal =
-                    course.getTotalSeatsOnline();
+                    internship.getTotalSeatsOnline();
 
             if (newTotal < registered) {
 
@@ -773,7 +739,7 @@ public class CourseService {
         // OFFLINE SEATS
         // -----------------------------------------------------
 
-        if (course.getTotalSeatsOffline() != null) {
+        if (internship.getTotalSeatsOffline() != null) {
 
             int registered =
                     safeValue(
@@ -782,7 +748,7 @@ public class CourseService {
                     );
 
             int newTotal =
-                    course.getTotalSeatsOffline();
+                    internship.getTotalSeatsOffline();
 
             if (newTotal < registered) {
 
@@ -805,7 +771,7 @@ public class CourseService {
         // TIRUNELVELI SEATS
         // -----------------------------------------------------
 
-        if (course.getTotalSeatsTirunelveli() != null) {
+        if (internship.getTotalSeatsTirunelveli() != null) {
 
             int registered =
                     safeValue(
@@ -814,7 +780,7 @@ public class CourseService {
                     );
 
             int newTotal =
-                    course.getTotalSeatsTirunelveli();
+                    internship.getTotalSeatsTirunelveli();
 
             if (newTotal < registered) {
 
@@ -837,7 +803,7 @@ public class CourseService {
         // TISAIYANVILAI SEATS
         // -----------------------------------------------------
 
-        if (course.getTotalSeatsTisaiyanvilai() != null) {
+        if (internship.getTotalSeatsTisaiyanvilai() != null) {
 
             int registered =
                     safeValue(
@@ -846,7 +812,7 @@ public class CourseService {
                     );
 
             int newTotal =
-                    course.getTotalSeatsTisaiyanvilai();
+                    internship.getTotalSeatsTisaiyanvilai();
 
             if (newTotal < registered) {
 
@@ -878,27 +844,15 @@ public class CourseService {
         // STATUS
         // -----------------------------------------------------
 
-        if (course.getStatus() != null
-                && !course.getStatus().isBlank()) {
+        if (internship.getStatus() != null
+                && !internship.getStatus().isBlank()) {
 
             existing.setStatus(
-                    course.getStatus()
+                    internship.getStatus()
                             .trim()
                             .toUpperCase()
             );
         }
-
-
-        // -----------------------------------------------------
-        // IMPORTANT
-        // -----------------------------------------------------
-        /*
-         * NO trainerName update here.
-         *
-         * NO zoomLink update here.
-         *
-         * These belong to staff/batch assignment logic.
-         */
 
 
         // -----------------------------------------------------
@@ -916,12 +870,12 @@ public class CourseService {
                 new HashMap<>();
 
         response.put(
-                "courseId",
+                "internshipId",
                 id.toString()
         );
 
         response.put(
-                "courseCode",
+                "internshipCode",
                 existing.getCourseCode()
         );
 
@@ -932,7 +886,7 @@ public class CourseService {
 
         response.put(
                 "message",
-                "Course Updated Successfully"
+                "Internship Updated Successfully"
         );
 
         return response;
@@ -944,28 +898,28 @@ public class CourseService {
     // =========================================================
 
     private void validateUpdatedDates(
-            Course course) {
+            Course internship) {
 
-        if (course.getStartDate() == null
-                || course.getEndDate() == null) {
+        if (internship.getStartDate() == null
+                || internship.getEndDate() == null) {
 
             return;
         }
 
-        if (course.getStartDate()
-                .isAfter(course.getEndDate())) {
+        if (internship.getStartDate()
+                .isAfter(internship.getEndDate())) {
 
             throw new IllegalArgumentException(
                     "Start Date cannot be after End Date"
             );
         }
 
-        if (course.getRegistrationStartDate() != null
-                && course.getRegistrationEndDate() != null) {
+        if (internship.getRegistrationStartDate() != null
+                && internship.getRegistrationEndDate() != null) {
 
-            if (course.getRegistrationStartDate()
+            if (internship.getRegistrationStartDate()
                     .isAfter(
-                            course.getRegistrationEndDate()
+                            internship.getRegistrationEndDate()
                     )) {
 
                 throw new IllegalArgumentException(
@@ -973,13 +927,13 @@ public class CourseService {
                 );
             }
 
-            if (course.getRegistrationEndDate()
+            if (internship.getRegistrationEndDate()
                     .isAfter(
-                            course.getStartDate()
+                            internship.getStartDate()
                     )) {
 
                 throw new IllegalArgumentException(
-                        "Registration End Date cannot be after Course Start Date"
+                        "Registration End Date cannot be after Internship Start Date"
                 );
             }
         }
@@ -991,21 +945,21 @@ public class CourseService {
     // =========================================================
 
     private void validateUpdatedOfflineCapacity(
-            Course course) {
+            Course internship) {
 
         int offline =
                 safeValue(
-                        course.getTotalSeatsOffline()
+                        internship.getTotalSeatsOffline()
                 );
 
         int tirunelveli =
                 safeValue(
-                        course.getTotalSeatsTirunelveli()
+                        internship.getTotalSeatsTirunelveli()
                 );
 
         int tisaiyanvilai =
                 safeValue(
-                        course.getTotalSeatsTisaiyanvilai()
+                        internship.getTotalSeatsTisaiyanvilai()
                 );
 
         int locationTotal =
@@ -1022,21 +976,24 @@ public class CourseService {
 
 
     // =========================================================
-    // DELETE COURSE
+    // DELETE INTERNSHIP
     // =========================================================
 
     @Transactional
-    public void deleteCourse(Long id) {
+    public void deleteInternship(Long id) {
 
-        Course course =
-                repository.findById(id)
+        Course internship =
+                repository.findByIdAndCategory(
+                                id,
+                                Category.INTERNSHIP
+                        )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Course Not Found"
+                                        "Internship Not Found"
                                 )
                         );
 
-        repository.delete(course);
+        repository.delete(internship);
     }
 
 
@@ -1049,11 +1006,14 @@ public class CourseService {
             Long id,
             String status) {
 
-        Course course =
-                repository.findById(id)
+        Course internship =
+                repository.findByIdAndCategory(
+                                id,
+                                Category.INTERNSHIP
+                        )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Course Not Found with ID: "
+                                        "Internship Not Found with ID: "
                                                 + id
                                 )
                         );
@@ -1084,17 +1044,17 @@ public class CourseService {
         }
 
 
-        course.setStatus(
+        internship.setStatus(
                 normalizedStatus
         );
 
-        repository.save(course);
+        repository.save(internship);
 
 
         return Map.of(
                 "message",
-                "Course status updated to " +
-                        course.getStatus() +
+                "Internship status updated to " +
+                        internship.getStatus() +
                         " successfully"
         );
     }

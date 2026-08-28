@@ -29,6 +29,7 @@ public class StudentController {
     @PostMapping("/register")
     public ResponseEntity<?> registerStudent(
             @RequestBody StudentRegisterRequest request) {
+
         return ResponseEntity.ok(service.registerStudent(request));
     }
 

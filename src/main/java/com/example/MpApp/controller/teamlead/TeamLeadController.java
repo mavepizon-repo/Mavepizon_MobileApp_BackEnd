@@ -284,7 +284,7 @@ public class TeamLeadController {
     // ==========================================================
 
     @PostMapping("/task/assign")
-    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<?> assignTask(@RequestBody TaskRequest request,  @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
@@ -308,8 +308,8 @@ public class TeamLeadController {
 
     }
 
-    @PostMapping("/task/assign-all-by-teamlead")
-    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
+    @PostMapping("/task/assign-all-by-current-user")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<?> assignAllByTeamLead(@RequestHeader("Authorization") String authHeader , @RequestBody TaskRequest request){
 
         return ResponseEntity.ok(
@@ -320,7 +320,7 @@ public class TeamLeadController {
 
 
     @PutMapping("/task/update/{taskId}")
-    @PreAuthorize("hasRole('ROLE_TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEAD','ROLE_ADMIN')")
     public ResponseEntity<?> updateTask(
             @PathVariable Long taskId,
             @RequestBody TaskAdminUpdateRequest request,

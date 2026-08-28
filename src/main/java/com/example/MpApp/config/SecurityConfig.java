@@ -75,6 +75,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // ================= PUBLIC =================
+
                         .requestMatchers(
                                 "/api/admin/register",
                                 "/api/admin/login",
@@ -96,7 +97,11 @@ public class SecurityConfig {
 
                                 "/api/collegestaff/login",
                                 "/api/collegestaff/forgot-password/**",
-                                "/api/collegestaff/change-password"
+                                "/api/collegestaff/change-password",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -137,7 +142,7 @@ public class SecurityConfig {
                         .hasAnyRole("STUDENT", "TEAM_LEAD", "ADMIN", "COLLEGE_STAFF")
 
                         // ================= STUDENT =================
-                        .requestMatchers("/api/student/**").hasRole("STUDENT")
+                        .requestMatchers("/api/student/**").permitAll()
                         .requestMatchers("/api/student-course/register", "/api/student-course/my-courses", "/api/student-course/my-registrations").hasRole("STUDENT")
                         .requestMatchers("/api/student-course/get-all", "/api/student-course/get/**", "/api/student-course/delete/**").hasAnyRole("TEAM_LEAD", "ADMIN")
 

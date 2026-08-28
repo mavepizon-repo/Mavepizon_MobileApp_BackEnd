@@ -1,5 +1,6 @@
 package com.example.MpApp.entity.task;
 
+import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.teamlead.TeamLead;
 import com.example.MpApp.entity.enums.Priority;
@@ -59,6 +60,10 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "team_lead_id")
     private TeamLead teamLead;
+
+    @ManyToOne
+    @JoinColumn(name="admin_id")
+    private Admin admin;
 
     public Task() {
     }

@@ -1,7 +1,9 @@
 package com.example.MpApp.service.course;
 
+
 import com.example.MpApp.config.JwtService;
 import com.example.MpApp.dto.course.StudentCourseRegistrationRequest;
+import com.example.MpApp.entity.course.Category;
 import com.example.MpApp.entity.course.Course;
 import com.example.MpApp.entity.course.StudentCourseRegistration;
 import com.example.MpApp.entity.student.Student;
@@ -18,9 +20,10 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
-public class StudentCourseRegistrationService {
+public class InternshipRegistrationService {
 
     @Autowired
     private StudentCourseRegistrationRepository repository;
@@ -36,11 +39,11 @@ public class StudentCourseRegistrationService {
 
 
     // =========================================================
-    // REGISTER COURSE
+    // REGISTER INTERNSHIP
     // =========================================================
 
     @Transactional
-    public Map<String, Object> registerCourse(
+    public Map<String, Object> registerInternship(
             String token,
             StudentCourseRegistrationRequest request) {
 
@@ -62,84 +65,96 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 2. VALIDATE COURSE ID
+        // 2. VALIDATE INTERNSHIP ID
         // =====================================================
 
         if (request.getCourseId() == null) {
 
             throw new IllegalArgumentException(
-                    "Course ID is required"
+                    "Internship ID is required"
             );
         }
 
 
         // =====================================================
-        // 3. FIND COURSE
+        // 3. FIND INTERNSHIP
         // =====================================================
 
-        Course course =
+        Course internship =
                 courseRepository
                         .findById(request.getCourseId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Course Not Found"
+                                        "Internship Not Found"
                                 )
                         );
 
 
         // =====================================================
-        // 4. CHECK COURSE STATUS
+        // 4. CHECK CATEGORY
         // =====================================================
 
-        if (course.getStatus() == null ||
-                !"ACTIVE".equalsIgnoreCase(
-                        course.getStatus()
-                )) {
+        if (internship.getCategory() != Category.INTERNSHIP) {
 
-            throw new IllegalStateException(
-                    "Course registration is currently closed"
+            throw new IllegalArgumentException(
+                    "This offering is not an Internship"
             );
         }
 
 
         // =====================================================
-        // 5. CHECK REGISTRATION DATE
+        // 5. CHECK INTERNSHIP STATUS
+        // =====================================================
+
+        if (internship.getStatus() == null ||
+                !"ACTIVE".equalsIgnoreCase(
+                        internship.getStatus()
+                )) {
+
+            throw new IllegalStateException(
+                    "Internship registration is currently closed"
+            );
+        }
+
+
+        // =====================================================
+        // 6. CHECK REGISTRATION DATE
         // =====================================================
 
         LocalDate today = LocalDate.now();
 
 
-        if (course.getRegistrationStartDate() != null &&
+        if (internship.getRegistrationStartDate() != null &&
                 today.isBefore(
-                        course.getRegistrationStartDate()
+                        internship.getRegistrationStartDate()
                 )) {
 
             throw new IllegalStateException(
-                    "Course registration has not started yet"
+                    "Internship registration has not started yet"
             );
         }
 
 
-        if (course.getRegistrationEndDate() != null &&
+        if (internship.getRegistrationEndDate() != null &&
                 today.isAfter(
-                        course.getRegistrationEndDate()
+                        internship.getRegistrationEndDate()
                 )) {
 
             throw new IllegalStateException(
-                    "Course registration is closed"
+                    "Internship registration is closed"
             );
         }
 
 
         // =====================================================
-        // 6. CHECK DUPLICATE REGISTRATION
+        // 7. CHECK DUPLICATE REGISTRATION
         // =====================================================
 
         boolean alreadyRegistered =
                 repository
                         .existsByStudentStudentIdAndCourseId(
                                 student.getStudentId(),
-                                course.getId()
+                                internship.getId()
                         );
 
 
@@ -149,7 +164,7 @@ public class StudentCourseRegistrationService {
                     repository
                             .findByStudentStudentIdAndCourseId(
                                     student.getStudentId(),
-                                    course.getId()
+                                    internship.getId()
                             )
                             .orElseThrow(() ->
                                     new ResourceNotFoundException(
@@ -167,7 +182,7 @@ public class StudentCourseRegistrationService {
             )) {
 
                 throw new IllegalArgumentException(
-                        "You are already registered for this course"
+                        "You are already registered for this internship"
                 );
             }
 
@@ -183,7 +198,7 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 7. VALIDATE MODE
+        // 8. VALIDATE MODE
         // =====================================================
 
         String mode =
@@ -193,7 +208,7 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 8. VALIDATE LOCATION
+        // 9. VALIDATE LOCATION
         // =====================================================
 
         String location =
@@ -204,18 +219,18 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 9. CHECK SEAT AVAILABILITY
+        // 10. CHECK SEAT AVAILABILITY
         // =====================================================
 
         checkSeatAvailability(
-                course,
+                internship,
                 mode,
                 location
         );
 
 
         // =====================================================
-        // 10. CREATE REGISTRATION
+        // 11. CREATE REGISTRATION
         // =====================================================
 
         StudentCourseRegistration registration =
@@ -224,48 +239,48 @@ public class StudentCourseRegistrationService {
 
         registration.setStudent(student);
 
-        registration.setCourse(course);
+        registration.setCourse(internship);
 
 
         // =====================================================
-        // 11. SET MODE
+        // 12. SET MODE
         // =====================================================
 
         registration.setMode(mode);
 
 
         // =====================================================
-        // 12. SET LOCATION
+        // 13. SET LOCATION
         // =====================================================
 
         registration.setLocation(location);
 
 
         // =====================================================
-        // 13. VALIDATE COURSE FEE
+        // 14. VALIDATE INTERNSHIP FEE
         // =====================================================
 
-        if (course.getTotalFees() == null ||
-                course.getTotalFees() <= 0) {
+        if (internship.getTotalFees() == null ||
+                internship.getTotalFees() <= 0) {
 
             throw new IllegalStateException(
-                    "Course fee is not configured"
+                    "Internship fee is not configured"
             );
         }
 
 
         // =====================================================
-        // 14. CALCULATE REGISTRATION FEE
+        // 15. CALCULATE REGISTRATION FEE
         // =====================================================
 
         /*
-         * Backend calculates 30%.
+         * Backend calculates 10%, same as course flow.
          *
          * Frontend does NOT send the amount.
          */
 
         Double registrationFee =
-                course.getTotalFees() * 0.10;
+                internship.getTotalFees() * 0.10;
 
 
         registrationFee =
@@ -280,7 +295,7 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 15. INITIAL PAYMENT STATUS
+        // 16. INITIAL PAYMENT STATUS
         // =====================================================
 
         registration.setPaymentStatus(
@@ -289,7 +304,7 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 16. INITIAL REGISTRATION STATUS
+        // 17. INITIAL REGISTRATION STATUS
         // =====================================================
 
         registration.setRegistrationStatus(
@@ -298,7 +313,7 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 17. STUDENT COURSE COUNT
+        // 18. STUDENT COURSE COUNT
         // =====================================================
 
         Integer currentCount =
@@ -318,7 +333,7 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 18. SAVE REGISTRATION
+        // 19. SAVE REGISTRATION
         // =====================================================
 
         StudentCourseRegistration saved =
@@ -328,7 +343,7 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 19. RESPONSE
+        // 20. RESPONSE
         // =====================================================
 
         Map<String, Object> response =
@@ -348,20 +363,20 @@ public class StudentCourseRegistrationService {
 
 
         response.put(
-                "courseId",
-                course.getId()
+                "internshipId",
+                internship.getId()
         );
 
 
         response.put(
-                "courseCode",
-                course.getCourseCode()
+                "internshipCode",
+                internship.getCourseCode()
         );
 
 
         response.put(
-                "courseName",
-                course.getCourseName()
+                "internshipName",
+                internship.getCourseName()
         );
 
 
@@ -397,7 +412,7 @@ public class StudentCourseRegistrationService {
 
         response.put(
                 "message",
-                "Registration created. Complete Razorpay payment to confirm your registration."
+                "Registration created. Complete Razorpay payment to confirm your internship registration."
         );
 
 
@@ -412,7 +427,7 @@ public class StudentCourseRegistrationService {
     private Map<String, Object> buildPendingPaymentResponse(
             StudentCourseRegistration registration) {
 
-        Course course =
+        Course internship =
                 registration.getCourse();
 
 
@@ -435,20 +450,20 @@ public class StudentCourseRegistrationService {
 
 
         response.put(
-                "courseId",
-                course.getId()
+                "internshipId",
+                internship.getId()
         );
 
 
         response.put(
-                "courseCode",
-                course.getCourseCode()
+                "internshipCode",
+                internship.getCourseCode()
         );
 
 
         response.put(
-                "courseName",
-                course.getCourseName()
+                "internshipName",
+                internship.getCourseName()
         );
 
 
@@ -581,7 +596,7 @@ public class StudentCourseRegistrationService {
     // =========================================================
 
     private void checkSeatAvailability(
-            Course course,
+            Course internship,
             String mode,
             String location) {
 
@@ -593,7 +608,7 @@ public class StudentCourseRegistrationService {
         if ("ONLINE".equals(mode)) {
 
             Integer available =
-                    course.getAvailableSeatsOnline();
+                    internship.getAvailableSeatsOnline();
 
 
             if (available == null ||
@@ -616,7 +631,7 @@ public class StudentCourseRegistrationService {
         if ("OFFLINE".equals(mode)) {
 
             Integer available =
-                    course.getAvailableSeatsOffline();
+                    internship.getAvailableSeatsOffline();
 
 
             if (available == null ||
@@ -635,7 +650,7 @@ public class StudentCourseRegistrationService {
             if ("TIRUNELVELI".equals(location)) {
 
                 Integer availableTirunelveli =
-                        course.getAvailableSeatsTirunelveli();
+                        internship.getAvailableSeatsTirunelveli();
 
 
                 if (availableTirunelveli == null ||
@@ -655,7 +670,7 @@ public class StudentCourseRegistrationService {
             if ("TISAIYANVILAI".equals(location)) {
 
                 Integer availableTisaiyanvilai =
-                        course.getAvailableSeatsTisaiyanvilai();
+                        internship.getAvailableSeatsTisaiyanvilai();
 
 
                 if (availableTisaiyanvilai == null ||
@@ -707,7 +722,23 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 2. ALREADY CONFIRMED
+        // 2. VERIFY THIS IS AN INTERNSHIP REGISTRATION
+        // =====================================================
+
+        Course internship =
+                registration.getCourse();
+
+        if (internship == null ||
+                internship.getCategory() != Category.INTERNSHIP) {
+
+            throw new IllegalArgumentException(
+                    "This registration is not an Internship registration"
+            );
+        }
+
+
+        // =====================================================
+        // 3. ALREADY CONFIRMED
         // =====================================================
 
         if ("CONFIRMED".equalsIgnoreCase(
@@ -716,22 +747,6 @@ public class StudentCourseRegistrationService {
 
             return buildConfirmationResponse(
                     registration
-            );
-        }
-
-
-        // =====================================================
-        // 3. GET COURSE
-        // =====================================================
-
-        Course course =
-                registration.getCourse();
-
-
-        if (course == null) {
-
-            throw new IllegalStateException(
-                    "Course is not linked to registration"
             );
         }
 
@@ -752,7 +767,7 @@ public class StudentCourseRegistrationService {
         // =====================================================
 
         checkSeatAvailability(
-                course,
+                internship,
                 mode,
                 location
         );
@@ -763,7 +778,7 @@ public class StudentCourseRegistrationService {
         // =====================================================
 
         consumeSeat(
-                course,
+                internship,
                 mode,
                 location
         );
@@ -788,10 +803,10 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 9. SAVE COURSE
+        // 9. SAVE INTERNSHIP
         // =====================================================
 
-        courseRepository.save(course);
+        courseRepository.save(internship);
 
 
         // =====================================================
@@ -818,7 +833,7 @@ public class StudentCourseRegistrationService {
     // =========================================================
 
     private void consumeSeat(
-            Course course,
+            Course internship,
             String mode,
             String location) {
 
@@ -830,10 +845,10 @@ public class StudentCourseRegistrationService {
         if ("ONLINE".equals(mode)) {
 
             Integer available =
-                    course.getAvailableSeatsOnline();
+                    internship.getAvailableSeatsOnline();
 
             Integer registered =
-                    course.getRegisteredSeatsOnline();
+                    internship.getRegisteredSeatsOnline();
 
 
             if (available == null) {
@@ -845,12 +860,12 @@ public class StudentCourseRegistrationService {
             }
 
 
-            course.setAvailableSeatsOnline(
+            internship.setAvailableSeatsOnline(
                     available - 1
             );
 
 
-            course.setRegisteredSeatsOnline(
+            internship.setRegisteredSeatsOnline(
                     registered + 1
             );
 
@@ -866,10 +881,10 @@ public class StudentCourseRegistrationService {
         if ("OFFLINE".equals(mode)) {
 
             Integer available =
-                    course.getAvailableSeatsOffline();
+                    internship.getAvailableSeatsOffline();
 
             Integer registered =
-                    course.getRegisteredSeatsOffline();
+                    internship.getRegisteredSeatsOffline();
 
 
             if (available == null) {
@@ -881,12 +896,12 @@ public class StudentCourseRegistrationService {
             }
 
 
-            course.setAvailableSeatsOffline(
+            internship.setAvailableSeatsOffline(
                     available - 1
             );
 
 
-            course.setRegisteredSeatsOffline(
+            internship.setRegisteredSeatsOffline(
                     registered + 1
             );
 
@@ -898,10 +913,10 @@ public class StudentCourseRegistrationService {
             if ("TIRUNELVELI".equals(location)) {
 
                 Integer locationAvailable =
-                        course.getAvailableSeatsTirunelveli();
+                        internship.getAvailableSeatsTirunelveli();
 
                 Integer locationRegistered =
-                        course.getRegisteredSeatsTirunelveli();
+                        internship.getRegisteredSeatsTirunelveli();
 
 
                 if (locationAvailable == null) {
@@ -913,12 +928,12 @@ public class StudentCourseRegistrationService {
                 }
 
 
-                course.setAvailableSeatsTirunelveli(
+                internship.setAvailableSeatsTirunelveli(
                         locationAvailable - 1
                 );
 
 
-                course.setRegisteredSeatsTirunelveli(
+                internship.setRegisteredSeatsTirunelveli(
                         locationRegistered + 1
                 );
             }
@@ -931,10 +946,10 @@ public class StudentCourseRegistrationService {
             else if ("TISAIYANVILAI".equals(location)) {
 
                 Integer locationAvailable =
-                        course.getAvailableSeatsTisaiyanvilai();
+                        internship.getAvailableSeatsTisaiyanvilai();
 
                 Integer locationRegistered =
-                        course.getRegisteredSeatsTisaiyanvilai();
+                        internship.getRegisteredSeatsTisaiyanvilai();
 
 
                 if (locationAvailable == null) {
@@ -946,12 +961,12 @@ public class StudentCourseRegistrationService {
                 }
 
 
-                course.setAvailableSeatsTisaiyanvilai(
+                internship.setAvailableSeatsTisaiyanvilai(
                         locationAvailable - 1
                 );
 
 
-                course.setRegisteredSeatsTisaiyanvilai(
+                internship.setRegisteredSeatsTisaiyanvilai(
                         locationRegistered + 1
                 );
             }
@@ -967,7 +982,7 @@ public class StudentCourseRegistrationService {
     buildConfirmationResponse(
             StudentCourseRegistration registration) {
 
-        Course course =
+        Course internship =
                 registration.getCourse();
 
 
@@ -990,20 +1005,20 @@ public class StudentCourseRegistrationService {
 
 
         response.put(
-                "courseId",
-                course.getId()
+                "internshipId",
+                internship.getId()
         );
 
 
         response.put(
-                "courseCode",
-                course.getCourseCode()
+                "internshipCode",
+                internship.getCourseCode()
         );
 
 
         response.put(
-                "courseName",
-                course.getCourseName()
+                "internshipName",
+                internship.getCourseName()
         );
 
 
@@ -1040,7 +1055,7 @@ public class StudentCourseRegistrationService {
 
         response.put(
                 "message",
-                "Registration confirmed successfully"
+                "Internship registration confirmed successfully"
         );
 
 
@@ -1049,14 +1064,17 @@ public class StudentCourseRegistrationService {
 
 
     // =========================================================
-    // GET ALL REGISTRATIONS
+    // GET ALL INTERNSHIP REGISTRATIONS
     // =========================================================
 
     public List<StudentCourseRegistration>
     getAllRegistrations() {
 
         return repository
-                .findAllWithStudentAndCourse();
+                .findAllWithStudentAndCourse()
+                .stream()
+                .filter(this::isInternship)
+                .collect(Collectors.toList());
     }
 
 
@@ -1067,13 +1085,23 @@ public class StudentCourseRegistrationService {
     public StudentCourseRegistration
     getRegistrationById(Long id) {
 
-        return repository
-                .findByIdWithStudentAndCourse(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Registration Not Found"
-                        )
-                );
+        StudentCourseRegistration registration =
+                repository
+                        .findByIdWithStudentAndCourse(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Registration Not Found"
+                                )
+                        );
+
+        if (!isInternship(registration)) {
+
+            throw new ResourceNotFoundException(
+                    "Registration Not Found"
+            );
+        }
+
+        return registration;
     }
 
 
@@ -1087,19 +1115,38 @@ public class StudentCourseRegistrationService {
         return repository
                 .findByStudentStudentId(
                         studentId
-                );
+                )
+                .stream()
+                .filter(this::isInternship)
+                .collect(Collectors.toList());
     }
 
 
     // =========================================================
-    // GET BY COURSE
+    // GET BY INTERNSHIP
     // =========================================================
 
     public List<StudentCourseRegistration>
-    getByCourseId(Long courseId) {
+    getByInternshipId(Long internshipId) {
 
         return repository
-                .findByCourseId(courseId);
+                .findByCourseId(internshipId)
+                .stream()
+                .filter(this::isInternship)
+                .collect(Collectors.toList());
+    }
+
+
+    // =========================================================
+    // IS INTERNSHIP HELPER
+    // =========================================================
+
+    private boolean isInternship(
+            StudentCourseRegistration registration) {
+
+        return registration.getCourse() != null &&
+                registration.getCourse().getCategory()
+                        == Category.INTERNSHIP;
     }
 
 
@@ -1118,6 +1165,13 @@ public class StudentCourseRegistrationService {
                                         "Registration Not Found"
                                 )
                         );
+
+        if (!isInternship(registration)) {
+
+            throw new ResourceNotFoundException(
+                    "Registration Not Found"
+            );
+        }
 
 
         /*
@@ -1143,7 +1197,7 @@ public class StudentCourseRegistrationService {
 
 
     // =========================================================
-    // UPDATE COURSE REGISTRATION MODE / LOCATION
+    // UPDATE INTERNSHIP REGISTRATION MODE / LOCATION
     // ONLY BEFORE PAYMENT
     // =========================================================
 
@@ -1182,9 +1236,16 @@ public class StudentCourseRegistrationService {
                         )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Course registration not found"
+                                        "Internship registration not found"
                                 )
                         );
+
+        if (!isInternship(registration)) {
+
+            throw new ResourceNotFoundException(
+                    "Internship registration not found"
+            );
+        }
 
 
         // =====================================================
@@ -1247,16 +1308,16 @@ public class StudentCourseRegistrationService {
 
 
         // =====================================================
-        // 7. GET COURSE
+        // 7. GET INTERNSHIP
         // =====================================================
 
-        Course course =
+        Course internship =
                 registration.getCourse();
 
-        if (course == null) {
+        if (internship == null) {
 
             throw new ResourceNotFoundException(
-                    "Course not found for this registration"
+                    "Internship not found for this registration"
             );
         }
 
@@ -1268,16 +1329,13 @@ public class StudentCourseRegistrationService {
         /*
          * Pending registrations have not consumed a seat yet.
          *
-         * Therefore we only check whether the newly selected
-         * mode/location has availability.
-         *
          * The actual seat is consumed only after successful
          * Razorpay payment inside
          * confirmRegistrationAfterPayment().
          */
 
         checkSeatAvailability(
-                course,
+                internship,
                 newMode,
                 newLocation
         );
@@ -1320,7 +1378,7 @@ public class StudentCourseRegistrationService {
 
         response.put(
                 "message",
-                "Course registration updated successfully."
+                "Internship registration updated successfully."
         );
 
 
@@ -1337,20 +1395,20 @@ public class StudentCourseRegistrationService {
 
 
         response.put(
-                "courseId",
-                course.getId()
+                "internshipId",
+                internship.getId()
         );
 
 
         response.put(
-                "courseCode",
-                course.getCourseCode()
+                "internshipCode",
+                internship.getCourseCode()
         );
 
 
         response.put(
-                "courseName",
-                course.getCourseName()
+                "internshipName",
+                internship.getCourseName()
         );
 
 
@@ -1383,7 +1441,7 @@ public class StudentCourseRegistrationService {
 
 
     // =========================================================
-    // MY COURSES
+    // MY INTERNSHIPS
     // =========================================================
 
     public List<StudentCourseRegistration>
@@ -1406,6 +1464,9 @@ public class StudentCourseRegistrationService {
         return repository
                 .findByStudentStudentId(
                         student.getStudentId()
-                );
+                )
+                .stream()
+                .filter(this::isInternship)
+                .collect(Collectors.toList());
     }
 }

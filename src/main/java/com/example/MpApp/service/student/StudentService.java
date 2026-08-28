@@ -183,6 +183,7 @@ public class StudentService {
 
         Map<String, String> response = new HashMap<>();
         response.put("token", token);
+        response.put("role", "STUDENT");
         response.put("studentId", student.getStudentId());
         response.put("email", student.getEmail());
         response.put("message", "Login Successful");

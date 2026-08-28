@@ -2,9 +2,11 @@ package com.example.MpApp.service.payment;
 
 import com.example.MpApp.dto.payment.CreateRazorpayOrderRequest;
 import com.example.MpApp.dto.payment.VerifyRazorpayPaymentRequest;
+import com.example.MpApp.entity.course.Course;
 import com.example.MpApp.entity.course.StudentCourseRegistration;
 import com.example.MpApp.entity.payment.RazorpayPayment;
 import com.example.MpApp.exception.ResourceNotFoundException;
+import com.example.MpApp.repository.course.CourseRepository;
 import com.example.MpApp.repository.course.StudentCourseRegistrationRepository;
 import com.example.MpApp.repository.payment.RazorpayPaymentRepository;
 
@@ -36,6 +38,9 @@ public class RazorpayPaymentService {
 
     @Autowired
     private RazorpayPaymentRepository paymentRepository;
+
+    @Autowired
+    private CourseRepository courseRepository;
 
     @Autowired
     private StudentCourseRegistrationRepository registrationRepository;
@@ -517,6 +522,32 @@ public class RazorpayPaymentService {
             registration.setRegistrationStatus(
                     "CONFIRMED"
             );
+
+            Long courseId = registration.getCourse().getId();
+
+            Course course = courseRepository.findById(courseId).orElseThrow(() -> new ResourceNotFoundException("Course Not Found"));
+            String branch = registration.getLocation();
+            String mode = registration.getMode();
+
+            if(mode.equalsIgnoreCase("ONLINE")) {
+                course.setAvailableSeatsOnline(course.getAvailableSeatsOnline() - 1);
+            }
+
+            if(mode.equalsIgnoreCase("OFFLINE")) {
+                if(branch.equalsIgnoreCase("Tirunelveli")) {
+                    course.setAvailableSeatsTirunelveli(course.getAvailableSeatsTirunelveli() - 1);
+                } else if(branch.equalsIgnoreCase("Tisaiyanvilai")) {
+                    course.setAvailableSeatsTisaiyanvilai(course.getAvailableSeatsTisaiyanvilai() - 1);
+                }
+            }
+
+            courseRepository.save(course);
+
+
+
+
+
+
 
             registrationRepository.save(
                     registration
