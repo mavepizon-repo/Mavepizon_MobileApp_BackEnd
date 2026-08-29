@@ -1,9 +1,13 @@
 package com.example.MpApp.service.officestaff;
 
+import com.example.MpApp.config.JwtService;
+import com.example.MpApp.dto.Attendance.AttendanceResponseDTO;
 import com.example.MpApp.dto.officestaff.CheckInRequestDTO;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.officestaff.OfficeStaffAttendance;
+import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
 import com.example.MpApp.repository.officestaff.OfficeStaffAttendanceRepository;
+import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,10 +27,24 @@ public class OfficeStaffAttendanceService {
     private final OfficeStaffAttendanceRepository attendanceRepository;
     private final OfficeStaffRepository staffRepository;
     private final Clock clock;
+    private final JwtService jwtService;
+    private final OfficeStaffPermissionRepository permissionRepository;
 
     private static final LocalTime CUTOFF_CHECKIN = LocalTime.of(9, 3); // 09:03 AM
     private static final LocalTime CLOSING_TIME = LocalTime.of(18, 0);   // 06:00 PM
     private static final double MAX_ALLOWED_DISTANCE_METERS = 100.0;     // 100m tracking radius
+
+    public String extractEmail(String authHeader){
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+
+        return jwtService.extractUsername(token);
+    }
 
     // ================= GEO-FENCE BRANCH REGISTRY =================
     // ================= GEO-FENCE BRANCH REGISTRY =================
@@ -51,13 +69,24 @@ public class OfficeStaffAttendanceService {
     ===================================
     */
     @Transactional
-    public OfficeStaffAttendance checkIn(Long staffId, CheckInRequestDTO locationRequest) {
+    public OfficeStaffAttendance checkIn(String authHeader, CheckInRequestDTO locationRequest) {
         LocalDate today = LocalDate.now(clock);
         LocalTime now = LocalTime.now(clock);
 
+        String email = extractEmail(authHeader);
+
         // 1. Fetch Staff info and verify their assigned branch
-        OfficeStaff staff = staffRepository.findById(staffId)
+        OfficeStaff staff = staffRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Staff member not found."));
+
+        LocalTime CheckInTime = staff.getShiftStartTime();
+
+        if (CheckInTime == null) {
+            throw new IllegalStateException("Shift start time not configured for this staff member.");
+        }
+
+
+        LocalTime checkInDeadline = CheckInTime.plusMinutes(3);
 
         String staffBranch = staff.getBranch() != null ? staff.getBranch().toUpperCase() : "TIRUNELVELI";
         Coordinate targetBranchGeo = BRANCH_COORDINATES.get(staffBranch);
@@ -80,15 +109,24 @@ public class OfficeStaffAttendanceService {
         }
 
         // 3. Strict time validation (Reject completely after 9:03 AM)
-        if (now.isAfter(CUTOFF_CHECKIN)) {
-            throw new IllegalStateException("Check-in period has closed for today! You cannot check in after 9:03 AM.");
-        }
+
 
         Optional<OfficeStaffAttendance> existingAttendance =
-                attendanceRepository.findByStaffIdAndAttendanceDate(staffId, today);
+                attendanceRepository.findByStaffIdAndAttendanceDate(staff.getId(), today);
 
         if (existingAttendance.isPresent()) {
             throw new IllegalStateException("Already checked in for today!");
+        }
+
+        Optional<OfficeStaffPermission> approvedPermission =
+                permissionRepository.findByStaffIdAndPermissionDateAndStatus(staff.getId(), today, "APPROVED");
+
+        if (approvedPermission.isPresent()) {
+            checkInDeadline = checkInDeadline.plusHours(approvedPermission.get().getDurationHours());
+        }
+
+        if (now.isAfter(checkInDeadline)) {
+            throw new IllegalStateException("Check-in period has closed for today! You cannot check in after ." + checkInDeadline);
         }
 
         OfficeStaffAttendance attendance = new OfficeStaffAttendance();
@@ -106,11 +144,23 @@ public class OfficeStaffAttendanceService {
     ===================================
     */
     @Transactional
-    public OfficeStaffAttendance checkOut(Long staffId) {
+    public OfficeStaffAttendance checkOut(String authHeader) {
         LocalDate today = LocalDate.now(clock);
         LocalTime now = LocalTime.now(clock);
 
-        OfficeStaffAttendance attendance = attendanceRepository.findByStaffIdAndAttendanceDate(staffId, today)
+        String email = extractEmail(authHeader);
+
+        OfficeStaff staff = staffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+
+        LocalTime CheckOutTime = staff.getShiftEndTime();
+
+
+
+
+        OfficeStaffAttendance attendance = attendanceRepository.findByStaffIdAndAttendanceDate(staff.getId(), today)
                 .orElseThrow(() -> new IllegalStateException("No Check-In entry logged for today. You cannot check out without checking in first."));
 
         if (!"PRESENT".equals(attendance.getStatus())) {
@@ -123,7 +173,7 @@ public class OfficeStaffAttendanceService {
 
         attendance.setCheckOutTime(now);
 
-        if (now.isBefore(CLOSING_TIME)) {
+        if (now.isBefore(CheckOutTime)) {
             attendance.setStatus("LEAVE_EARLY");
         }
 
@@ -156,8 +206,41 @@ public class OfficeStaffAttendanceService {
         return "Successfully registered OD status for all active office staff on " + holidayDate;
     }
 
-    public List<OfficeStaffAttendance> getStaffAttendanceHistory(Long staffId) {
+    public List<OfficeStaffAttendance> getAttendanceHistory(Long staffId) {
+
         return attendanceRepository.findByStaffId(staffId);
+    }
+
+
+
+    public List<AttendanceResponseDTO> getStaffAttendanceHistory(String authHeader) {
+
+        String email = extractEmail(authHeader);
+
+        OfficeStaff staff = staffRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Staff member not found."));
+
+        List<OfficeStaffAttendance> attendance =
+                attendanceRepository.findByStaffId(staff.getId());
+
+        return attendance.stream()
+                .map(att -> {
+
+                    AttendanceResponseDTO dto = new AttendanceResponseDTO();
+
+                    dto.setId(att.getId());
+                    dto.setAttendanceDate(att.getAttendanceDate());
+                    dto.setCheckInTime(att.getCheckInTime());
+                    dto.setCheckOutTime(att.getCheckOutTime());
+                    dto.setStatus(att.getStatus());
+
+                    // Staff details
+                    dto.setStaffName(att.getStaff().getName());
+                    dto.setBranch(att.getStaff().getBranch());
+
+                    return dto;
+                })
+                .toList();
     }
 
     /*
@@ -183,7 +266,7 @@ public class OfficeStaffAttendanceService {
     // Inside OfficeStaffAttendanceService.java
 
     public double calculateAttendancePercentage(Long staffId) {
-        List<OfficeStaffAttendance> history = getStaffAttendanceHistory(staffId);
+        List<OfficeStaffAttendance> history = getAttendanceHistory(staffId);
         if (history.isEmpty()) return 0.0;
 
         long totalDays = history.size();

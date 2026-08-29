@@ -1,5 +1,6 @@
 package com.example.MpApp.controller.officestaff;
 
+import com.example.MpApp.dto.Attendance.AttendanceResponseDTO;
 import com.example.MpApp.dto.common.ForgotPasswordRequest;
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.officestaff.*;
@@ -74,12 +75,12 @@ public class OfficeStaffController {
     REQUEST PERMISSION (1 OR 2 HOURS)
     ===================================
     */
-    @PostMapping("/{staffId}/permissions")
+    @PostMapping("/permissions-request")
     public ResponseEntity<Map<String, String>> requestPermission(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestBody PermissionRequestDTO requestDTO) {
 
-        return ResponseEntity.ok(service.requestPermission(staffId, requestDTO));
+        return ResponseEntity.ok(service.requestPermission(authHeader, requestDTO));
     }
 
     /*
@@ -87,26 +88,26 @@ public class OfficeStaffController {
     GET PERMISSION HISTORY
     ===================================
     */
-    @GetMapping("/{staffId}/permissions/history")
-    public ResponseEntity<List<OfficeStaffPermission>> getPermissionHistory(
-            @PathVariable Long staffId) {
+    @GetMapping("/permissions/history")
+    public ResponseEntity<List<PermissionResponseDTO>> getPermissionHistory(
+            @RequestHeader("Authorization") String authHeader) {
 
-        return ResponseEntity.ok(service.getPermissionHistory(staffId));
+        return ResponseEntity.ok(service.getPermissionHistory(authHeader));
     }
 
-    @PostMapping("/{staffId}/checkin")
-    public ResponseEntity<OfficeStaffAttendance> checkIn(@PathVariable Long staffId, @RequestBody CheckInRequestDTO checkInRequestDTO) {
-        return ResponseEntity.ok(attendanceService.checkIn(staffId,checkInRequestDTO));
+    @PostMapping("/checkin")
+    public ResponseEntity<OfficeStaffAttendance> checkIn(@RequestHeader("Authorization") String authHeader, @RequestBody CheckInRequestDTO checkInRequestDTO) {
+        return ResponseEntity.ok(attendanceService.checkIn(authHeader,checkInRequestDTO));
     }
 
-    @PostMapping("/{staffId}/checkout")
-    public ResponseEntity<OfficeStaffAttendance> checkOut(@PathVariable Long staffId) {
-        return ResponseEntity.ok(attendanceService.checkOut(staffId));
+    @PostMapping("/checkout")
+    public ResponseEntity<OfficeStaffAttendance> checkOut(@RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(attendanceService.checkOut(authHeader));
     }
 
-    @GetMapping("/{staffId}/history")
-    public ResponseEntity<List<OfficeStaffAttendance>> getHistory(@PathVariable Long staffId) {
-        return ResponseEntity.ok(attendanceService.getStaffAttendanceHistory(staffId));
+    @GetMapping("/attendance-history")
+    public ResponseEntity<List<AttendanceResponseDTO>> getHistory(@RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(attendanceService.getStaffAttendanceHistory(authHeader));
     }
 
     // ================= FORGOT & RESET PASSWORD =================

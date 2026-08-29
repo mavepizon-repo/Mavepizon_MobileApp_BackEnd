@@ -1,6 +1,7 @@
     package com.example.MpApp.entity.officestaff;
     
     import java.time.LocalDate;
+    import java.time.LocalTime;
 
     import com.example.MpApp.entity.admin.Admin;
     import com.example.MpApp.entity.common.StaffCreator;
@@ -74,6 +75,10 @@
         private StaffCategory category;
     
         private Integer score = 100;
+
+        private LocalTime shiftStartTime;
+
+        private LocalTime shiftEndTime;
     
 
     }

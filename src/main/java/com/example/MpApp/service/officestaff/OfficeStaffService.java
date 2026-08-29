@@ -293,9 +293,11 @@ public class OfficeStaffService {
     ===================================
     */
     @Transactional
-    public Map<String, String> requestPermission(Long staffId, PermissionRequestDTO request) {
-        OfficeStaff staff = repository.findById(staffId)
-                .orElseThrow(() -> new ResourceNotFoundException("Staff index missing for ID: " + staffId));
+    public Map<String, String> requestPermission(String authHeader, PermissionRequestDTO request) {
+
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff index missing for email : " + email));
 
         // 1. Validate duration bounds (Only 1-hour or 2-hour slots permitted)
         if (request.getDurationHours() != 1 && request.getDurationHours() != 2) {
@@ -313,7 +315,7 @@ public class OfficeStaffService {
             int targetYear = request.getPermissionDate().getYear();
 
             long permissionsCountThisMonth = permissionRepository.countPermissionsByStaffAndMonth(
-                    staffId, targetMonth, targetYear
+                    staff.getId(), targetMonth, targetYear
             );
 
             if (permissionsCountThisMonth >= 2) {
@@ -342,11 +344,37 @@ public class OfficeStaffService {
     }
 
     // UNCHANGED GET UNTOUCHED METHOD FOR HISTORY AUDIT
-    public List<OfficeStaffPermission> getPermissionHistory(Long staffId) {
-        repository.findById(staffId)
-                .orElseThrow(() -> new ResourceNotFoundException("Staff validation footprint missing for ID: " + staffId));
+    public List<PermissionResponseDTO> getPermissionHistory(String authHeader) {
 
-        return permissionRepository.findByStaffIdOrderByPermissionDateDesc(staffId);
+        String email = extractEmail(authHeader);
+
+        OfficeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Staff validation footprint missing for Email: " + email
+                ));
+
+        List<OfficeStaffPermission> permissions =
+                permissionRepository.findByStaffIdOrderByPermissionDateDesc(staff.getId());
+
+        return permissions.stream()
+                .map(permission -> {
+
+                    PermissionResponseDTO dto = new PermissionResponseDTO();
+
+                    dto.setId(permission.getId());
+                    dto.setPermissionDate(permission.getPermissionDate());
+                    dto.setDurationHours(permission.getDurationHours());
+                    dto.setReason(permission.getReason());
+                    dto.setStatus(permission.getStatus());
+                    dto.setCreatedAt(permission.getCreatedAt());
+
+                    // Staff details
+                    dto.setStaffName(permission.getStaff().getName());
+                    dto.setBranch(permission.getStaff().getBranch());
+
+                    return dto;
+                })
+                .toList();
     }
 
     // Inject your officeStaffRepository directly here
