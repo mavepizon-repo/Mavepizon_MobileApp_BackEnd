@@ -1,5 +1,6 @@
 package com.example.MpApp.entity.officestaff;
 
+import com.example.MpApp.entity.teamlead.TeamLead;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -33,6 +34,10 @@ public class OfficeStaffPermission {
     private String status; // PENDING, APPROVED, REJECTED
 
     private LocalDateTime createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_lead_id")
+    private TeamLead teamLead;
 
     @PrePersist
     protected void onCreate() {

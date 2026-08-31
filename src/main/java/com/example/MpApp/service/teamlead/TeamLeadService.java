@@ -2,6 +2,7 @@ package com.example.MpApp.service.teamlead;
 
 import com.example.MpApp.dto.officestaff.CreatedByDTO;
 import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
+import com.example.MpApp.dto.officestaff.OfficeStaffPermissionResponseDTO;
 import com.example.MpApp.dto.officestaff.OfficeStaffResponseDTO;
 import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
@@ -18,6 +19,7 @@ import com.example.MpApp.entity.student.Student;
 import com.example.MpApp.entity.task.Task;
 import com.example.MpApp.entity.task.TaskReview;
 import com.example.MpApp.entity.teamlead.TeamLead;
+import com.example.MpApp.entity.teamlead.TeamLeadAttendance;
 import com.example.MpApp.entity.teamlead.TeamLeadLeave;
 import com.example.MpApp.entity.teamlead.TeamLeadPermission;
 import com.example.MpApp.exception.DuplicateResourceException;
@@ -30,6 +32,7 @@ import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
 import com.example.MpApp.repository.task.TaskRepository;
 import com.example.MpApp.repository.task.TaskReviewRepository;
+import com.example.MpApp.repository.teamlead.TeamLeadAttendanceRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadLeaveRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadPermissionRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadRepository;
@@ -54,10 +57,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -77,6 +77,7 @@ public class TeamLeadService {
     private final TeamLeadPermissionRepository teamLeadPermissionRepository;
     private final OtpRepository otpRepository;
     private final AdminRepository adminRepository;
+    private final TeamLeadAttendanceRepository teamLeadAttendanceRepository;
 
 
     private final CloudinaryService cloudinaryService;
@@ -989,6 +990,46 @@ public class TeamLeadService {
         return response;
     }
 
+    @Transactional
+    public List<OfficeStaffPermissionResponseDTO> getAllPendingPermission(String authHeader) {
+
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
+        );
+
+        List<OfficeStaffPermission> permissions = permissionRepository.findByStatus(
+                "PENDING"
+        );
+
+
+        List<OfficeStaffPermissionResponseDTO> response = new ArrayList<>();
+
+        for (OfficeStaffPermission permission : permissions) {
+
+            OfficeStaffPermissionResponseDTO dto =
+                    new OfficeStaffPermissionResponseDTO();
+
+            dto.setId(permission.getId());
+            dto.setStaffId(permission.getStaff().getId());
+            dto.setStaffName(permission.getStaff().getName());
+            dto.setStaffBranch(permission.getStaff().getBranch());
+            dto.setPermissionDate(permission.getPermissionDate());
+            dto.setDurationHours(permission.getDurationHours());
+            dto.setReason(permission.getReason());
+            dto.setStatus(permission.getStatus());
+            dto.setCreatedAt(permission.getCreatedAt());
+
+            response.add(dto);
+        }
+
+        return response;
+
+
+
+
+    }
+
     /**
      * Helper method to validate that the staff ID belongs to a Team Leader
      * and retrieve their assigned branch.
@@ -1011,9 +1052,39 @@ public class TeamLeadService {
     GET ALL PERMISSIONS IN TL BRANCH
     ===================================
     */
-    public List<OfficeStaffPermission> getAllBranchPermissions(Long leaderStaffId) {
-        String branch = validateAndGetTeamLeadBranch(leaderStaffId);
-        return permissionRepository.findAllByBranch(branch);
+    public List<OfficeStaffPermissionResponseDTO> getAllBranchPermissions(String authHeader) {
+
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
+        );
+
+        String branch = validateAndGetTeamLeadBranch(teamLead.getId());
+        List<OfficeStaffPermission> permissions =  permissionRepository.findAllByBranch(branch);
+
+        List<OfficeStaffPermissionResponseDTO> response = new ArrayList<>();
+
+        for (OfficeStaffPermission permission : permissions) {
+
+            OfficeStaffPermissionResponseDTO dto =
+                    new OfficeStaffPermissionResponseDTO();
+
+            dto.setId(permission.getId());
+            dto.setStaffId(permission.getStaff().getId());
+            dto.setPermissionDate(permission.getPermissionDate());
+            dto.setDurationHours(permission.getDurationHours());
+            dto.setReason(permission.getReason());
+            dto.setStatus(permission.getStatus());
+            dto.setCreatedAt(permission.getCreatedAt());
+            dto.setStaffName(permission.getStaff().getName());
+            dto.setStaffBranch(permission.getStaff().getBranch());
+
+            response.add(dto);
+        }
+
+        return response;
+
+
     }
 
     /*
@@ -1021,20 +1092,49 @@ public class TeamLeadService {
     GET PENDING ACTIONABLE PERMISSIONS
     ===================================
     */
-    public List<OfficeStaffPermission> getPendingBranchPermissions(Long leaderStaffId) {
-        String branch = validateAndGetTeamLeadBranch(leaderStaffId);
-        return permissionRepository.findByBranchAndStatus(branch, "PENDING");
+    public List<OfficeStaffPermissionResponseDTO> getPendingBranchPermissions(String authHeader) {
+
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
+        );
+        String branch = validateAndGetTeamLeadBranch(teamLead.getId());
+        List<OfficeStaffPermission> permissions =  permissionRepository.findByBranchAndStatus(branch, "PENDING");
+
+        List<OfficeStaffPermissionResponseDTO> response = new ArrayList<>();
+
+        for (OfficeStaffPermission permission : permissions) {
+
+            OfficeStaffPermissionResponseDTO dto =
+                    new OfficeStaffPermissionResponseDTO();
+
+            dto.setId(permission.getId());
+            dto.setStaffId(permission.getStaff().getId());
+            dto.setPermissionDate(permission.getPermissionDate());
+            dto.setDurationHours(permission.getDurationHours());
+            dto.setReason(permission.getReason());
+            dto.setStatus(permission.getStatus());
+            dto.setCreatedAt(permission.getCreatedAt());
+            dto.setStaffName(permission.getStaff().getName());
+            dto.setStaffBranch(permission.getStaff().getBranch());
+
+            response.add(dto);
+        }
+
+        return response;
     }
 
     @Transactional
     public Map<String, String> requestPermissionToAdmin(
-            Long teamLeadId,
+            String authHeader,
             TeamLeadPermissionRequestDTO dto) {
 
+        String email = extractEmail(authHeader);
+
         // 1. Find Team Lead
-        TeamLead teamLead = repository.findById(teamLeadId)
+        TeamLead teamLead = repository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Team Lead record not found for ID: " + teamLeadId));
+                        "Team Lead record not found for ID: " + email ));
 
         // 2. Validate permission date
         if (dto.getPermissionDate() == null) {
@@ -1050,7 +1150,7 @@ public class TeamLeadService {
         //    in the requested calendar month
         long approvedCount = teamLeadPermissionRepository
                 .countByTeamLeadIdAndPermissionDateBetweenAndStatusIgnoreCase(
-                        teamLeadId,
+                        teamLead.getId(),
                         startDate,
                         endDate,
                         "APPROVED"
@@ -1094,8 +1194,12 @@ public class TeamLeadService {
         return teamLeadLeaveRepository.findByTeamLeadId(teamLeadId);
     }
 
-    public List<TeamLeadPermission> getMyPermissionHistory(Long teamLeadId) {
-        return teamLeadPermissionRepository.findByTeamLeadId(teamLeadId);
+    public List<TeamLeadPermission> getMyPermissionHistory(String authHeader) {
+        String email = extractEmail(authHeader);
+        TeamLead teamLead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for email : " + email)
+        );
+        return teamLeadPermissionRepository.findByTeamLeadId(teamLead.getId());
     }
     // Inject your required repositories (e.g., teamLeadRepository, officeStaffRepository)
 
@@ -1136,6 +1240,27 @@ public class TeamLeadService {
         }
 
         return "OTP Verified Successfully";
+    }
+
+    @Transactional
+    public String markHolidayODForTeamLeads(LocalDate holidayDate) {
+        List<TeamLead> allTeamLeads = repository.findAll();
+
+        for (TeamLead teamLead : allTeamLeads) {
+            Optional<TeamLeadAttendance> existing = teamLeadAttendanceRepository.findByTeamLeadIdAndAttendanceDate(teamLead.getId(), holidayDate);
+
+            if (existing.isPresent()) {
+                TeamLeadAttendance attendance = existing.get();
+                attendance.setStatus("OD");
+                attendance.setCheckInTime(null);
+                attendance.setCheckOutTime(null);
+                teamLeadAttendanceRepository.save(attendance);
+            } else {
+                TeamLeadAttendance holidayAttendance = new TeamLeadAttendance(teamLead, holidayDate, "OD");
+                teamLeadAttendanceRepository.save(holidayAttendance);
+            }
+        }
+        return "Successfully registered OD status for all team leads on " + holidayDate;
     }
 
     @Transactional

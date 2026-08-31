@@ -52,5 +52,7 @@ public interface OfficeStaffPermissionRepository extends JpaRepository<OfficeSta
     Optional<OfficeStaffPermission> findByStaffIdAndPermissionDateAndStatus(
             Long staffId, LocalDate permissionDate, String status);
 
+    List<OfficeStaffPermission> findByStatus(String status);
+
     void deleteByStaffId(Long staffId);
 }

@@ -12,6 +12,7 @@ import com.example.MpApp.entity.teamlead.TeamLead;
 import com.example.MpApp.entity.teamlead.TeamLeadPermission;
 import com.example.MpApp.service.admin.AdminService;
 import com.example.MpApp.service.officestaff.OfficeStaffAttendanceService;
+import com.example.MpApp.service.teamlead.TeamLeadService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +32,7 @@ public class AdminController {
 
     private final AdminService service;
     private final OfficeStaffAttendanceService attendanceService;
+    private final TeamLeadService teamLeadService;
 
 
     // ==========================================================
@@ -429,8 +431,8 @@ public class AdminController {
     }
 
 
-    @GetMapping("/permissions/pending")
-    public ResponseEntity<List<TeamLeadPermission>>
+    @GetMapping("/teamlead/permissions/pending")
+    public ResponseEntity<?>
     getPendingTeamLeadPermissions() {
 
         return ResponseEntity.ok(
@@ -439,7 +441,7 @@ public class AdminController {
     }
 
 
-    @PutMapping("/permissions/{permissionId}/approve")
+    @PutMapping("/teamlead/permissions/approve/{permissionId}")
     public ResponseEntity<Map<String, String>>
     approveTeamLeadPermission(
             @PathVariable Long permissionId) {
@@ -450,7 +452,7 @@ public class AdminController {
     }
 
 
-    @PutMapping("/permissions/{permissionId}/reject")
+    @PutMapping("/teamlead/permissions/reject/{permissionId}")
     public ResponseEntity<Map<String, String>>
     rejectTeamLeadPermission(
             @PathVariable Long permissionId,
@@ -465,7 +467,7 @@ public class AdminController {
     }
 
 
-    @PostMapping("/mark-holiday")
+    @PatchMapping("/mark-holiday/officeStaff/all")
     public ResponseEntity<String> markHoliday(
             @RequestParam("date")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -473,6 +475,17 @@ public class AdminController {
 
         return ResponseEntity.ok(
                 attendanceService.markHolidayOD(holidayDate)
+        );
+    }
+
+    @PatchMapping("/mark-holiday/teamlead/all")
+    public ResponseEntity<String> markHolidayTL(
+            @RequestParam("date")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate holidayDate
+    ){
+        return ResponseEntity.ok(
+                teamLeadService.markHolidayODForTeamLeads(holidayDate)
         );
     }
 

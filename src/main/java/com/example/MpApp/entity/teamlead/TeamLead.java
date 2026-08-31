@@ -71,6 +71,10 @@ public class TeamLead implements StaffCreator {
     @JsonIgnore
     private Admin createdByAdmin;
 
+
+    private LocalDate shiftStart;
+    private LocalDate shiftEnd;
+
     /*
     =========================================
     STATUS
@@ -81,6 +85,15 @@ public class TeamLead implements StaffCreator {
 
     public TeamLead() {
     }
+
+    public LocalDate getShiftStart() {
+        return shiftStart;
+    }
+
+    public void setShiftStart(LocalDate shiftStart) {
+        this.shiftStart = shiftStart;
+    }
+
 
     public Long getId() {
         return id;

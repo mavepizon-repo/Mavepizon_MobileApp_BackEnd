@@ -3,6 +3,7 @@ package com.example.MpApp.controller.teamlead;
 import com.example.MpApp.dto.common.ForgotPasswordRequest;
 import com.example.MpApp.dto.officestaff.CheckInRequestDTO;
 import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
+import com.example.MpApp.dto.officestaff.OfficeStaffPermissionResponseDTO;
 import com.example.MpApp.dto.officestaff.OfficeStaffResponseDTO;
 import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadLoginRequest;
@@ -652,7 +653,7 @@ public class TeamLeadController {
     // ==========================================================
 
     @PutMapping(
-            "/permissions/{permissionId}/approve"
+            "/teamlead/officestaff/permissions/approve/{permissionId}"
     )
     public ResponseEntity<Map<String, String>>
     approvePermission(
@@ -668,7 +669,7 @@ public class TeamLeadController {
 
 
     @PutMapping(
-            "/permissions/{permissionId}/reject"
+            "/teamlead/officestaff/permissions/reject/{permissionId}"
     )
     public ResponseEntity<Map<String, String>>
     rejectPermission(
@@ -704,15 +705,15 @@ public class TeamLeadController {
 
 
     @GetMapping(
-            "/{teamLeadId}/permissions/history"
+            "/teamlead/permissions/history"
     )
     public ResponseEntity<List<TeamLeadPermission>>
     getMyPermissionHistory(
-            @PathVariable Long teamLeadId) {
+            @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
                 service.getMyPermissionHistory(
-                        teamLeadId
+                        authHeader
                 )
         );
     }
@@ -722,14 +723,14 @@ public class TeamLeadController {
     // BRANCH PERMISSIONS
     // ==========================================================
 
-    @GetMapping("/{leaderStaffId}/permissions")
-    public ResponseEntity<List<OfficeStaffPermission>>
+    @GetMapping("/officeStaff/permissions/byBranch")
+    public ResponseEntity<List<OfficeStaffPermissionResponseDTO>>
     getAllBranchPermissions(
-            @PathVariable Long leaderStaffId) {
+            @RequestHeader("Authorization") String authHeader) {
 
-        List<OfficeStaffPermission> permissions =
+        List<OfficeStaffPermissionResponseDTO> permissions =
                 service.getAllBranchPermissions(
-                        leaderStaffId
+                        authHeader
                 );
 
         return ResponseEntity.ok(permissions);
@@ -737,15 +738,15 @@ public class TeamLeadController {
 
 
     @GetMapping(
-            "/{leaderStaffId}/permissions/pending"
+            "/teamlead/officeStaff/permissions/pending"
     )
-    public ResponseEntity<List<OfficeStaffPermission>>
+    public ResponseEntity<List<OfficeStaffPermissionResponseDTO>>
     getPendingBranchPermissions(
-            @PathVariable Long leaderStaffId) {
+            @RequestHeader("Authorization") String authHeader) {
 
-        List<OfficeStaffPermission> pendingRequests =
+        List<OfficeStaffPermissionResponseDTO> pendingRequests =
                 service.getPendingBranchPermissions(
-                        leaderStaffId
+                        authHeader
                 );
 
         return ResponseEntity.ok(
@@ -759,15 +760,15 @@ public class TeamLeadController {
     // ==========================================================
 
     @PostMapping(
-            "/{teamLeadId}/permission-request"
+            "/teamlead/permission-request"
     )
     public ResponseEntity<?> requestPermissionFromAdmin(
-            @PathVariable Long teamLeadId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestBody TeamLeadPermissionRequestDTO request) {
 
         return ResponseEntity.ok(
                 service.requestPermissionToAdmin(
-                        teamLeadId,
+                        authHeader,
                         request
                 )
         );

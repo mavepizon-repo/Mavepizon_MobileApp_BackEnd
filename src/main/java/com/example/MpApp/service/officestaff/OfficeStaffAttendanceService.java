@@ -6,10 +6,13 @@ import com.example.MpApp.dto.officestaff.CheckInRequestDTO;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.officestaff.OfficeStaffAttendance;
 import com.example.MpApp.entity.officestaff.OfficeStaffPermission;
+import com.example.MpApp.entity.teamlead.TeamLead;
+import com.example.MpApp.entity.teamlead.TeamLeadAttendance;
 import com.example.MpApp.repository.officestaff.OfficeStaffAttendanceRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
 import lombok.RequiredArgsConstructor;
+import org.antlr.v4.runtime.tree.pattern.ParseTreePattern;
 import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
 
@@ -50,7 +53,7 @@ public class OfficeStaffAttendanceService {
     // ================= GEO-FENCE BRANCH REGISTRY =================
     private static final Map<String, Coordinate> BRANCH_COORDINATES = Map.of(
             "TIRUNELVELI", new Coordinate(8.718412865303698, 77.73201179302228),
-            "THISAYANVILLAI", new Coordinate(8.337947315572267, 77.86680851969136)
+            "THISAYANVILAI", new Coordinate(8.337947315572267, 77.86680851969136)
     );
 
     // Simple immutable helper class to hold coordinates
@@ -185,6 +188,7 @@ public class OfficeStaffAttendanceService {
     3. ADMIN PUBLIC HOLIDAY / OD BULK
     ===================================
     */
+
     @Transactional
     public String markHolidayOD(LocalDate holidayDate) {
         List<OfficeStaff> allStaff = staffRepository.findAll();

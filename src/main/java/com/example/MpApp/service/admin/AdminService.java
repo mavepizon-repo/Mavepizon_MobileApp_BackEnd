@@ -5,6 +5,8 @@ import com.example.MpApp.dto.admin.AdminLoginRequest;
 import com.example.MpApp.dto.officestaff.StaffResponseDTO;
 import com.example.MpApp.dto.task.*;
 import com.example.MpApp.dto.teamlead.TeamLeadPerformanceDTO;
+import com.example.MpApp.dto.teamlead.TeamLeadPermissionRequestDTO;
+import com.example.MpApp.dto.teamlead.TeamLeadPermissionResponseDTO;
 import com.example.MpApp.entity.OtpEntity;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
@@ -1521,12 +1523,38 @@ public class AdminService {
     }
 
 
-    public List<TeamLeadPermission>
+    public List<TeamLeadPermissionResponseDTO>
     getPendingAdminPermissions() {
 
-        return teamLeadPermissionRepository
+        List<TeamLeadPermission> request = teamLeadPermissionRepository
                 .findByStatusIgnoreCase("PENDING");
+
+
+        List<TeamLeadPermissionResponseDTO> response = new ArrayList<>();
+
+        for (TeamLeadPermission permission : request) {
+
+            TeamLeadPermissionResponseDTO dto =
+                    new TeamLeadPermissionResponseDTO();
+
+            dto.setId(permission.getId());
+            dto.setTeamLeadId(permission.getTeamLead().getId());
+            dto.setPermissionDate(permission.getPermissionDate());
+            dto.setDurationHours(permission.getDurationHours());
+            dto.setReason(permission.getReason());
+            dto.setStatus(permission.getStatus());
+            dto.setRemarks(permission.getRemarks());
+            dto.setCreatedAt(permission.getCreatedAt());
+            dto.setTeamLeadName(permission.getTeamLead().getName());
+            dto.setTeamLeadBranch(permission.getTeamLead().getBranch());
+
+            response.add(dto);
+        }
+
+        return response;
     }
+
+
 
 
     // =========================================================
