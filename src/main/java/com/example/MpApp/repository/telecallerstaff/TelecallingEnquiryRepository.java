@@ -37,4 +37,6 @@ public interface TelecallingEnquiryRepository
     List<TelecallingEnquiry> findByCollegeNameContainingIgnoreCaseAndStatus(
             String collegeName,
             EnquiryStatus status);
+
+    List<TelecallingEnquiry> findByNextFollowupDate(LocalDate nextFollowupDate);
 }

@@ -468,7 +468,7 @@ public class AdminController {
 
 
     @PatchMapping("/mark-holiday/officeStaff/all")
-    public ResponseEntity<String> markHoliday(
+    public ResponseEntity<Map<String,String>> markHoliday(
             @RequestParam("date")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate holidayDate) {
@@ -479,13 +479,37 @@ public class AdminController {
     }
 
     @PatchMapping("/mark-holiday/teamlead/all")
-    public ResponseEntity<String> markHolidayTL(
+    public ResponseEntity<Map<String,String>> markHolidayTL(
             @RequestParam("date")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate holidayDate
     ){
         return ResponseEntity.ok(
                 teamLeadService.markHolidayODForTeamLeads(holidayDate)
+        );
+    }
+
+    @PatchMapping("/mark-holiday/teamlead/{teamleadId}")
+    public ResponseEntity<Map<String,String>> markHolidayTL(
+            @PathVariable Long teamleadId,
+            @RequestParam("date")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate holidayDate
+    ){
+        return ResponseEntity.ok(
+                teamLeadService.markHolidayODForSingleTeamLead(teamleadId, holidayDate)
+        );
+
+    }
+
+    @PatchMapping("/mark-holiday/officeStaff/{staffId}")
+    public ResponseEntity<Map<String,String>> markHolidayODForStaff(
+            @PathVariable Long staffId,
+            @RequestParam("date")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+           LocalDate holidayDate) {
+        return ResponseEntity.ok(
+                attendanceService.markHolidayODForSingleStaff(staffId, holidayDate)
         );
     }
 

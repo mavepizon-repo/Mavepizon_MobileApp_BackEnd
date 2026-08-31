@@ -30,6 +30,17 @@ public class TelecallingEnquiry {
 
     private String city;
 
+
+    private String address;
+
+    public String getDistrict() {
+        return district;
+    }
+
+
+
+    private String district;
+
     private String interestedCourse;
 
     private LocalDate enquiryDate;
@@ -56,15 +67,8 @@ public class TelecallingEnquiry {
      ==================================
      */
 
-    @JsonIgnore
-    @OneToMany(
-            mappedBy = "enquiry",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true,
-            fetch = FetchType.LAZY
-    )
-    private List<TelecallingFollowup> followups =
-            new ArrayList<>();
+
+    private LocalDate nextFollowupDate;
 
     private LocalDateTime createdAt;
 
@@ -198,13 +202,6 @@ public class TelecallingEnquiry {
         this.student = student;
     }
 
-    public List<TelecallingFollowup> getFollowups() {
-        return followups;
-    }
-
-    public void setFollowups(List<TelecallingFollowup> followups) {
-        this.followups = followups;
-    }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -213,4 +210,25 @@ public class TelecallingEnquiry {
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+    public LocalDate getNextFollowupDate() {
+        return nextFollowupDate;
+    }
+
+    public void setNextFollowupDate(LocalDate nextFollowupDate) {
+        this.nextFollowupDate = nextFollowupDate;
+    }
+
+
 }

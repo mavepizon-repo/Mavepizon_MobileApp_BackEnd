@@ -1,5 +1,6 @@
 package com.example.MpApp.service.telecallerstaff;
 
+import com.example.MpApp.config.JwtService;
 import com.example.MpApp.dto.telecallerstaff.TelecallingEnquiryRequest;
 import com.example.MpApp.dto.telecallerstaff.TelecallingFollowupRequest;
 import com.example.MpApp.dto.telecallerstaff.TelecallingUpdateRequest;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,12 +34,26 @@ public class TelecallingService {
     private final TelecallingFollowupRepository followupRepository;
     private final OfficeStaffRepository officeStaffRepository;
     private final StudentRepository studentRepository;
+    private final JwtService jwtService;
 
     /*
      =====================================
      TELECALLER VALIDATION
      =====================================
      */
+
+    public String extractEmail(String authHeader){
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
+        return email;
+    }
 
     private OfficeStaff validateTelecaller(Long staffId) {
         OfficeStaff staff = officeStaffRepository.findById(staffId)
@@ -57,19 +73,34 @@ public class TelecallingService {
      */
 
     @Transactional
-    public Map<String, String> createEnquiry(Long staffId, TelecallingEnquiryRequest request) {
-        validateTelecaller(staffId);
+    public Map<String, String> createEnquiry(String authHeader, TelecallingEnquiryRequest request) {
+
+        String email = extractEmail(authHeader);
+
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+        validateTelecaller(staff.getId());
+
+
+
 
         TelecallingEnquiry enquiry = new TelecallingEnquiry();
+
         enquiry.setStudentName(request.getStudentName());
         enquiry.setPhone(request.getPhone());
         enquiry.setEmail(request.getEmail());
         enquiry.setCollegeName(request.getCollegeName());
         enquiry.setDepartment(request.getDepartment());
         enquiry.setCity(request.getCity());
+        enquiry.setDistrict(request.getDistrict());
+        enquiry.setAddress(request.getAddress());
         enquiry.setInterestedCourse(request.getInterestedCourse());
         enquiry.setRemarks(request.getRemarks());
         enquiry.setStatus(EnquiryStatus.NEW);
+        enquiry.setEnquiryDate(LocalDate.now());
+        enquiry.setNextFollowupDate(request.getLatestFollowupDate());
 
         /* Link Student if exists */
         studentRepository.findByEmail(request.getEmail())
@@ -90,8 +121,14 @@ public class TelecallingService {
      =====================================
      */
 
-    public List<TelecallingEnquiry> getAllEnquiries(Long staffId) {
-        validateTelecaller(staffId);
+    public List<TelecallingEnquiry> getAllEnquiries(String authHeader) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+
+        validateTelecaller(staff.getId());
         return enquiryRepository.findAll();
     }
 
@@ -101,8 +138,14 @@ public class TelecallingService {
      =====================================
      */
 
-    public TelecallingEnquiry getEnquiryById(Long staffId, Long enquiryId) {
-        validateTelecaller(staffId);
+    public TelecallingEnquiry getEnquiryById(String authHeader, Long enquiryId) {
+
+        String email = extractEmail(authHeader);
+
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+        validateTelecaller(staff.getId());
         return enquiryRepository.findById(enquiryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enquiry not found"));
     }
@@ -114,8 +157,13 @@ public class TelecallingService {
      */
 
     @Transactional
-    public Map<String, String> updateEnquiry(Long staffId, Long enquiryId, TelecallingUpdateRequest request) {
-        validateTelecaller(staffId);
+    public Map<String, String> updateEnquiry(String authHeader, Long enquiryId, TelecallingUpdateRequest request) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+        validateTelecaller(staff.getId());
 
         TelecallingEnquiry enquiry = enquiryRepository.findById(enquiryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enquiry not found"));
@@ -129,6 +177,12 @@ public class TelecallingService {
         if (request.getInterestedCourse() != null) enquiry.setInterestedCourse(request.getInterestedCourse());
         if (request.getStatus() != null) enquiry.setStatus(request.getStatus());
         if (request.getRemarks() != null) enquiry.setRemarks(request.getRemarks());
+        if (request.getFollowupDate() != null) enquiry.setNextFollowupDate(request.getFollowupDate());
+
+        System.out.println(
+                enquiry.getNextFollowupDate()
+        );
+
 
         enquiryRepository.save(enquiry);
 
@@ -145,8 +199,12 @@ public class TelecallingService {
      */
 
     @Transactional
-    public void deleteEnquiry(Long staffId, Long enquiryId) {
-        validateTelecaller(staffId);
+    public void deleteEnquiry(String authHeader, Long enquiryId) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+        validateTelecaller(staff.getId());
         if (!enquiryRepository.existsById(enquiryId)) {
             throw new ResourceNotFoundException("Enquiry instance missing for ID: " + enquiryId);
         }
@@ -159,23 +217,43 @@ public class TelecallingService {
      =====================================
      */
 
-    public List<TelecallingEnquiry> filterByCollege(Long staffId, String collegeName) {
-        validateTelecaller(staffId);
+    public List<TelecallingEnquiry> filterByCollege(String authHeader, String collegeName) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+        validateTelecaller(staff.getId());
         return enquiryRepository.findByCollegeNameContainingIgnoreCase(collegeName);
     }
 
-    public List<TelecallingEnquiry> filterByStatus(Long staffId, EnquiryStatus status) {
-        validateTelecaller(staffId);
+    public List<TelecallingEnquiry> filterByStatus(String authHeader, EnquiryStatus status) {
+
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+        validateTelecaller(staff.getId());
         return enquiryRepository.findByStatus(status);
     }
 
-    public List<TelecallingEnquiry> filterByStudentName(Long staffId, String studentName) {
-        validateTelecaller(staffId);
+    public List<TelecallingEnquiry> filterByStudentName(String authHeader, String studentName) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+        validateTelecaller(staff.getId());
         return enquiryRepository.findByStudentNameContainingIgnoreCase(studentName);
     }
 
-    public List<TelecallingEnquiry> filterByDate(Long staffId, LocalDate date) {
-        validateTelecaller(staffId);
+    public List<TelecallingEnquiry> filterByDate(String authHeader, LocalDate date) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+        validateTelecaller(staff.getId());
         return enquiryRepository.findByEnquiryDate(date);
     }
 
@@ -185,9 +263,14 @@ public class TelecallingService {
      =====================================
      */
 
-    public List<TelecallingFollowup> getTodayFollowups(Long staffId) {
-        validateTelecaller(staffId);
-        return followupRepository.findByNextFollowupDateGreaterThanEqual(LocalDate.now());
+    public List<TelecallingEnquiry> getTodayFollowups(String authHeader) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+        validateTelecaller(staff.getId());
+        System.out.println(LocalDate.now());
+        return enquiryRepository.findByNextFollowupDate(LocalDate.now());
     }
 
     public List<TelecallingFollowup> getOverdueFollowups(Long staffId) {
@@ -201,8 +284,12 @@ public class TelecallingService {
      =====================================
      */
 
-    public List<TelecallingFollowup> getCustomFollowups(Long staffId) {
-        validateTelecaller(staffId);
+    public List<TelecallingFollowup> getCustomFollowups(String authHeader) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+        validateTelecaller(staff.getId());
         return followupRepository.findAll();
     }
 
@@ -213,8 +300,12 @@ public class TelecallingService {
      */
 
     @Transactional
-    public Map<String, String> addFollowup(Long staffId, Long enquiryId, TelecallingFollowupRequest request) {
-        OfficeStaff telecaller = validateTelecaller(staffId);
+    public Map<String, String> addFollowup(String authHeader, Long enquiryId, TelecallingFollowupRequest request) {
+        OfficeStaff staff = officeStaffRepository.findByEmail(authHeader).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+
+        OfficeStaff telecaller = validateTelecaller(staff.getId());
 
         TelecallingEnquiry enquiry = enquiryRepository.findById(enquiryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enquiry not found"));
@@ -245,11 +336,16 @@ public class TelecallingService {
      =====================================
      */
 
-    public List<TelecallingFollowup> getFollowupHistory(Long staffId, Long enquiryId) {
-        validateTelecaller(staffId);
+    public List<TelecallingFollowup> getFollowupHistory(String authHeader, Long enquiryId) {
+
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+        validateTelecaller(staff.getId());
         TelecallingEnquiry enquiry = enquiryRepository.findById(enquiryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enquiry not found"));
-        return enquiry.getFollowups();
+        return null;
     }
 
     /*
@@ -259,15 +355,19 @@ public class TelecallingService {
      */
 
     @Transactional
-    public Map<String, String> updateEnquiryStatus(EnquiryStatus status, Long enquiryId) {
-        TelecallingEnquiry enquiry = enquiryRepository.findById(enquiryId)
+    public Map<String, String> updateEnquiryStatus(EnquiryStatus status,String authHeader) {
+        String email = extractEmail(authHeader);
+        OfficeStaff staff = officeStaffRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Staff member not found.")
+        );
+        TelecallingEnquiry enquiry = enquiryRepository.findById(staff.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Enquiry not found"));
 
         enquiry.setStatus(status);
         enquiryRepository.save(enquiry);
 
         Map<String, String> response = new HashMap<>();
-        response.put("enquiryId", enquiryId.toString());
+        response.put("enquiryId", staff.getId().toString());
         response.put("status", status.toString());
         response.put("message", "Enquiry Status State Evaluated Successfully");
         return response;

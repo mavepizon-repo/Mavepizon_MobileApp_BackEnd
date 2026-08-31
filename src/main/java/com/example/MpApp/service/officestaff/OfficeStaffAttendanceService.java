@@ -190,7 +190,7 @@ public class OfficeStaffAttendanceService {
     */
 
     @Transactional
-    public String markHolidayOD(LocalDate holidayDate) {
+    public Map<String,String> markHolidayOD(LocalDate holidayDate) {
         List<OfficeStaff> allStaff = staffRepository.findAll();
 
         for (OfficeStaff staff : allStaff) {
@@ -207,7 +207,28 @@ public class OfficeStaffAttendanceService {
                 attendanceRepository.save(holidayAttendance);
             }
         }
-        return "Successfully registered OD status for all active office staff on " + holidayDate;
+        return Map.of("message", "Successfully registered OD status for all staff on " + holidayDate);
+    }
+
+    @Transactional
+    public Map<String,String> markHolidayODForSingleStaff(Long staffId, LocalDate holidayDate) {
+        OfficeStaff staff = staffRepository.findById(staffId)
+                .orElseThrow(() -> new RuntimeException("Office staff not found with id: " + staffId));
+
+        Optional<OfficeStaffAttendance> existing = attendanceRepository.findByStaffIdAndAttendanceDate(staff.getId(), holidayDate);
+
+        if (existing.isPresent()) {
+            OfficeStaffAttendance attendance = existing.get();
+            attendance.setStatus("OD");
+            attendance.setCheckInTime(null);
+            attendance.setCheckOutTime(null);
+            attendanceRepository.save(attendance);
+        } else {
+            OfficeStaffAttendance holidayAttendance = new OfficeStaffAttendance(staff, holidayDate, "OD");
+            attendanceRepository.save(holidayAttendance);
+        }
+
+        return Map.of("message", "Successfully registered OD status for " + staff.getName() + " on " + holidayDate);
     }
 
     public List<OfficeStaffAttendance> getAttendanceHistory(Long staffId) {

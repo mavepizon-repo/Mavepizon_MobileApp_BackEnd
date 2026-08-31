@@ -1243,7 +1243,7 @@ public class TeamLeadService {
     }
 
     @Transactional
-    public String markHolidayODForTeamLeads(LocalDate holidayDate) {
+    public Map<String,String> markHolidayODForTeamLeads(LocalDate holidayDate) {
         List<TeamLead> allTeamLeads = repository.findAll();
 
         for (TeamLead teamLead : allTeamLeads) {
@@ -1260,7 +1260,9 @@ public class TeamLeadService {
                 teamLeadAttendanceRepository.save(holidayAttendance);
             }
         }
-        return "Successfully registered OD status for all team leads on " + holidayDate;
+       Map<String,String> response = new HashMap<>();
+        response.put("message", "Holiday OD marked successfully");
+        return response;
     }
 
     @Transactional
@@ -1433,5 +1435,31 @@ public class TeamLeadService {
         stats.put("systemStatus", "OPERATIONAL");
 
         return stats;
+    }
+
+    @Transactional
+    public Map<String,String> markHolidayODForSingleTeamLead(Long id , LocalDate holidayDate) {
+        TeamLead teamLead = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Team lead not found with id :  " + id));
+
+        Optional<TeamLeadAttendance> existing = teamLeadAttendanceRepository.findByTeamLeadIdAndAttendanceDate(teamLead.getId(), holidayDate);
+
+        if (existing.isPresent()) {
+            TeamLeadAttendance attendance = existing.get();
+            attendance.setStatus("OD");
+            attendance.setCheckInTime(null);
+            attendance.setCheckOutTime(null);
+            teamLeadAttendanceRepository.save(attendance);
+        } else {
+            TeamLeadAttendance holidayAttendance = new TeamLeadAttendance(teamLead, holidayDate, "OD");
+            teamLeadAttendanceRepository.save(holidayAttendance);
+        }
+
+        Map<String,String> response = new HashMap<>();
+
+        response.put("message", "Successfully registered OD status for " + teamLead.getName() + " on " + holidayDate);
+        return response;
+
+
     }
 }

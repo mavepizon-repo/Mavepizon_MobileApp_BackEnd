@@ -8,6 +8,7 @@ import com.example.MpApp.entity.student.Student;
 import com.example.MpApp.entity.telecallerstaff.TelecallingEnquiry;
 import com.example.MpApp.entity.telecallerstaff.TelecallingFollowup;
 import com.example.MpApp.service.telecallerstaff.TelecallingService;
+import io.swagger.v3.oas.annotations.headers.Header;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,57 +29,56 @@ public class TelecallingController {
      =====================================
      */
 
-    @PostMapping("/{staffId}/enquiry")
+    @PostMapping("/enquiry/create")
     public ResponseEntity<?> createEnquiry(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestBody TelecallingEnquiryRequest request) {
 
         return ResponseEntity.ok(
                 telecallingService.createEnquiry(
-                        staffId,
+                        authHeader,
                         request));
     }
 
-    @GetMapping("/{staffId}/enquiries")
+    @GetMapping("/enquiry/all")
     public ResponseEntity<List<TelecallingEnquiry>> getAllEnquiries(
-            @PathVariable Long staffId) {
+            @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
-                telecallingService.getAllEnquiries(
-                        staffId));
+                telecallingService.getAllEnquiries(authHeader));
     }
 
-    @GetMapping("/{staffId}/enquiry/{enquiryId}")
+    @GetMapping("/enquiry/{enquiryId}")
     public ResponseEntity<TelecallingEnquiry> getEnquiryById(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long enquiryId) {
 
         return ResponseEntity.ok(
                 telecallingService.getEnquiryById(
-                        staffId,
+                        authHeader,
                         enquiryId));
     }
 
-    @PutMapping("/{staffId}/enquiry/{enquiryId}")
+    @PutMapping("/enquiry/update/{enquiryId}")
     public ResponseEntity<?> updateEnquiry(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long enquiryId,
             @RequestBody TelecallingUpdateRequest request) {
 
         return ResponseEntity.ok(
                 telecallingService.updateEnquiry(
-                        staffId,
+                        authHeader,
                         enquiryId,
                         request));
     }
 
-    @DeleteMapping("/{staffId}/enquiry/{enquiryId}")
+    @DeleteMapping("/enquiry/delete/{enquiryId}")
     public ResponseEntity<String> deleteEnquiry(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long enquiryId) {
 
         telecallingService.deleteEnquiry(
-                staffId,
+                authHeader,
                 enquiryId);
 
         return ResponseEntity.ok(
@@ -91,51 +91,51 @@ public class TelecallingController {
      =====================================
      */
 
-    @GetMapping("/{staffId}/college")
+    @GetMapping("/enquiry/college")
     public ResponseEntity<List<TelecallingEnquiry>>
     filterByCollege(
-            @PathVariable Long staffId,
-            @RequestParam String collegeName) {
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam("college") String collegeName) {
 
         return ResponseEntity.ok(
                 telecallingService.filterByCollege(
-                        staffId,
+                        authHeader,
                         collegeName));
     }
 
-    @GetMapping("/{staffId}/status")
+    @GetMapping("/enquiry/status")
     public ResponseEntity<List<TelecallingEnquiry>>
     filterByStatus(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam EnquiryStatus status) {
 
         return ResponseEntity.ok(
                 telecallingService.filterByStatus(
-                        staffId,
+                        authHeader,
                         status));
     }
 
-    @GetMapping("/{staffId}/student")
+    @GetMapping("/enquiry/student")
     public ResponseEntity<List<TelecallingEnquiry>>
     filterByStudentName(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam String studentName) {
 
         return ResponseEntity.ok(
                 telecallingService.filterByStudentName(
-                        staffId,
+                        authHeader,
                         studentName));
     }
 
-    @GetMapping("/{staffId}/date")
+    @GetMapping("/enquiry/date")
     public ResponseEntity<List<TelecallingEnquiry>>
     filterByDate(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam String date) {
 
         return ResponseEntity.ok(
                 telecallingService.filterByDate(
-                        staffId,
+                        authHeader,
                         LocalDate.parse(date)));
     }
 
@@ -145,49 +145,49 @@ public class TelecallingController {
      =====================================
      */
 
-    @GetMapping("/{staffId}/today-followups")
-    public ResponseEntity<List<TelecallingFollowup>>
+    @GetMapping("/enquiry/today-followups")
+    public ResponseEntity<List<TelecallingEnquiry>>
     getTodayFollowups(
-            @PathVariable Long staffId) {
+            @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
                 telecallingService.getTodayFollowups(
-                        staffId));
+                        authHeader));
     }
 
-    @GetMapping("/{staffId}/custom-followups")
+    @GetMapping("/custom-followups")
     public ResponseEntity<List<TelecallingFollowup>>
     getCustomFollowups(
-            @PathVariable Long staffId) {
+            @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
                 telecallingService.getCustomFollowups(
-                        staffId));
+                        authHeader));
     }
 
-    @PostMapping("/{staffId}/followup/{enquiryId}")
+    @PostMapping("/followup/{enquiryId}")
     public ResponseEntity<?>
     addFollowup(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long enquiryId,
             @RequestBody TelecallingFollowupRequest request) {
 
         return ResponseEntity.ok(
                 telecallingService.addFollowup(
-                        staffId,
+                        authHeader,
                         enquiryId,
                         request));
     }
 
-    @GetMapping("/{staffId}/history/{enquiryId}")
+    @GetMapping("/history/{enquiryId}")
     public ResponseEntity<List<TelecallingFollowup>>
     getFollowupHistory(
-            @PathVariable Long staffId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long enquiryId) {
 
         return ResponseEntity.ok(
                 telecallingService.getFollowupHistory(
-                        staffId,
+                        authHeader,
                         enquiryId));
     }
 
@@ -197,14 +197,14 @@ public class TelecallingController {
      =====================================
      */
 
-    @PostMapping("/{staffId}/update/{enquiryId}")
+    @PostMapping("/update/")
     public ResponseEntity<?> updateEnquiryStatus(
             @PathVariable EnquiryStatus status,
-            @PathVariable Long enquiryId) {
+            @RequestHeader("Authorization") String authHeader) {
 
         return ResponseEntity.ok(
                 telecallingService.updateEnquiryStatus(
                         status,
-                        enquiryId));
+                        authHeader));
     }
 }

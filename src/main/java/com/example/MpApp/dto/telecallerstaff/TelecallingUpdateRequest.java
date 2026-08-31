@@ -2,6 +2,8 @@ package com.example.MpApp.dto.telecallerstaff;
 
 import com.example.MpApp.entity.enums.EnquiryStatus;
 
+import java.time.LocalDate;
+
 public class TelecallingUpdateRequest {
 
     private String studentName;
@@ -21,6 +23,16 @@ public class TelecallingUpdateRequest {
     private EnquiryStatus status;
 
     private String remarks;
+
+    public LocalDate getFollowupDate() {
+        return FollowupDate;
+    }
+
+    public void setFollowupDate(LocalDate followupDate) {
+        FollowupDate = followupDate;
+    }
+
+    private LocalDate FollowupDate;
 
     public TelecallingUpdateRequest() {
     }
