@@ -5,6 +5,7 @@ import com.example.MpApp.entity.officestaff.OfficeStaff;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,6 +31,15 @@ public class TelecallingCallLog {
     private Long durationSeconds;
 
     private String callStatus;
+
+    private LocalDate createdDate;
+
+    @PrePersist
+    protected void onCreate() {
+        createdDate = LocalDate.now();
+    }
+
+
 
 
 }

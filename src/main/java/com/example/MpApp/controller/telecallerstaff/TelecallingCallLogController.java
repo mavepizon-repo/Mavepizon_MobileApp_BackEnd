@@ -48,4 +48,20 @@ public class TelecallingCallLogController {
                 "data", service.getAdminCalls(date, staffId)
         ));
     }
+
+    @GetMapping("/api/admin/telecalling/today")
+    public ResponseEntity<?> getCallToday(){
+        return ResponseEntity.ok(
+                service.getCallsByDate()
+        );
+    }
+
+    @GetMapping("api/admin/telecalling")
+    public ResponseEntity<?> getCallByStatus(
+            @RequestParam("status") String status
+    ){
+        return ResponseEntity.ok(
+                service.getCallsByStatus(status)
+        );
+    }
 }

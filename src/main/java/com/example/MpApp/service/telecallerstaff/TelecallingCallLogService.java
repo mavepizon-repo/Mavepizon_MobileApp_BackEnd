@@ -78,8 +78,23 @@ public class TelecallingCallLogService {
                 .stream().map(this::toResponse).toList();
     }
 
+    public List<CallLogResponse> getCallsByDate() {
+        List<TelecallingCallLog> logs = repo.findByCreatedDate(LocalDate.now());
+
+        return logs.stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public List<CallLogResponse> getCallsByStatus(String status) {
+        List<TelecallingCallLog> logs = repo.findByCallStatus(status);
+        return logs.stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public List<AdminCallLogResponse> getAdminCalls(LocalDate date, Long staffId) {
-        return repo.findAdminCompletedCalls(date, staffId).stream()
+        return repo.findAll().stream()
                 .map(c -> new AdminCallLogResponse(
                         "CALL" + c.getId(),
                         c.getStaff().getName(),

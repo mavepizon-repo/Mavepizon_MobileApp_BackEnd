@@ -23,4 +23,8 @@ public interface TelecallingCallLogRepository extends JpaRepository<TelecallingC
             @Param("date") LocalDate date,
             @Param("staffId") Long staffId
     );
+
+    List<TelecallingCallLog> findByCallStatus(String callStatus);
+
+    List<TelecallingCallLog> findByCreatedDate(LocalDate date);
 }
