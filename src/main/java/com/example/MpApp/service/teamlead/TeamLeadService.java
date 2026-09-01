@@ -207,6 +207,13 @@ public class TeamLeadService {
 
             task.setTeamLead(lead);
 
+            String teamLeadBranch = lead.getBranch();
+            String staffBranch = staff.getBranch();
+
+            if(!teamLeadBranch.equals(staffBranch)){
+                throw new IllegalArgumentException("Staff Branch does not match Team Lead Branch");
+            }
+
         }
 
 

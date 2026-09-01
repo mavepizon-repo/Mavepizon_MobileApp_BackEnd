@@ -109,9 +109,12 @@ public class OfficeStaffService {
 
         String role = "OFFICE_STAFF";
 
+        String category = String.valueOf(staff.getCategory());
+
         return Map.of(
                 "staffId", staff.getId().toString(),
                 "email", staff.getEmail(),
+                "category", category,
                 "token", token,
                 "role" , role
         );

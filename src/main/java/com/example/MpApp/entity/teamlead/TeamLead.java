@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "team_lead")
@@ -72,8 +73,11 @@ public class TeamLead implements StaffCreator {
     private Admin createdByAdmin;
 
 
-    private LocalDate shiftStart;
-    private LocalDate shiftEnd;
+    private LocalTime shiftStart;
+
+
+
+    private LocalTime shiftEnd;
 
     /*
     =========================================
@@ -86,12 +90,20 @@ public class TeamLead implements StaffCreator {
     public TeamLead() {
     }
 
-    public LocalDate getShiftStart() {
+    public LocalTime getShiftStart() {
         return shiftStart;
     }
 
-    public void setShiftStart(LocalDate shiftStart) {
+    public void setShiftStart(LocalTime shiftStart) {
         this.shiftStart = shiftStart;
+    }
+
+    public LocalTime getShiftEnd() {
+        return shiftEnd;
+    }
+
+    public void setShiftEnd(LocalTime shiftEnd) {
+        this.shiftEnd = shiftEnd;
     }
 
 

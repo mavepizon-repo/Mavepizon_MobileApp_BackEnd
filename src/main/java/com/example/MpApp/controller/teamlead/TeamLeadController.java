@@ -841,30 +841,30 @@ public class TeamLeadController {
     // ATTENDANCE
     // ==========================================================
 
-    @PostMapping("/{teamLeadId}/checkin")
+    @PatchMapping("/teamlead/checkin")
     public ResponseEntity<TeamLeadAttendance>
     checkIn(
-            @PathVariable Long teamLeadId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestBody CheckInRequestDTO request) {
 
         return ResponseEntity.ok(
                 teamLeadAttendanceService.checkIn(
-                        teamLeadId,
+                        authHeader,
                         request
                 )
         );
     }
 
 
-    @PostMapping("/{teamLeadId}/checkout")
+    @PatchMapping("/teamlead/checkout")
     public ResponseEntity<?> checkOut(
-            @PathVariable Long teamLeadId) {
+            @RequestHeader("Authorization") String authHeader) {
 
         try {
 
             return ResponseEntity.ok(
                     teamLeadAttendanceService.checkOut(
-                            teamLeadId
+                            authHeader
                     )
             );
 
