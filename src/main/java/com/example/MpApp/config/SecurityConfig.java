@@ -82,6 +82,8 @@ public class SecurityConfig {
                                 "/api/admin/forgot-password/**",
                                 "/api/admin/change-password",
 
+                                "/api/freelancer/login",
+
                                 "/api/teamlead/login",
                                 "/api/teamlead/forgot-password/**",
                                 "/api/teamlead/change-password",
@@ -119,7 +121,8 @@ public class SecurityConfig {
 
                         // ================= COLLEGE STAFF =================
                         .requestMatchers("/api/collegestaff/**").hasRole("COLLEGE_STAFF")
-
+                                // ================= FREELANCERS =================
+                                .requestMatchers("/api/freelancer/**").hasAnyRole("FREELANCER", "ADMIN")
                         // ================= CERTIFICATES =================
                         // Replace the broad Certificate entry in SecurityConfig with this:
                         .requestMatchers(HttpMethod.POST, "/api/certificates/initiate/**").hasAnyRole("ADMIN", "TEAM_LEAD", "OFFICE_STAFF")

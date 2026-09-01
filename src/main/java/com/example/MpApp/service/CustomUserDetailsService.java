@@ -1,6 +1,8 @@
 package com.example.MpApp.service;
 
+import com.example.MpApp.entity.freelancer.Freelancer;
 import com.example.MpApp.repository.admin.AdminRepository;
+import com.example.MpApp.repository.freelancer.FreelancerRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
 import com.example.MpApp.repository.teamlead.TeamLeadRepository;
 import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
@@ -32,6 +34,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Autowired
     private StudentRepository studentRepository;
 
+    @Autowired
+    private FreelancerRepository freelancerRepository;
+
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         Set<SimpleGrantedAuthority> authorities = new HashSet<>();
@@ -56,6 +61,10 @@ public class CustomUserDetailsService implements UserDetailsService {
         if (studentRepository.findByEmail(email).isPresent()) {
             authorities.add(new SimpleGrantedAuthority("ROLE_STUDENT"));
             if (password == null) password = studentRepository.findByEmail(email).get().getPassword();
+        }
+        if (freelancerRepository.findByEmail(email).isPresent()) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_FREELANCER"));
+            if (password == null) password = freelancerRepository.findByEmail(email).get().getPassword();
         }
 
         if (authorities.isEmpty()) {

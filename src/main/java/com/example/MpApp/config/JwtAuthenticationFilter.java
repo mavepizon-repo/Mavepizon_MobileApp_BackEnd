@@ -35,6 +35,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/admin/login",
             "/api/admin/change-password",
 
+            "api/freelancer/login",
+
             "/api/teamlead/login",
             "/api/teamlead/change-password",
 

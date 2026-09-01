@@ -1,15 +1,24 @@
 package com.example.MpApp.service.freelancer;
 
+import com.example.MpApp.config.JwtService;
 import com.example.MpApp.dto.Freelancer.FreelancerRequestDTO;
 import com.example.MpApp.dto.Freelancer.FreelancerResponseDTO;
+import com.example.MpApp.dto.Freelancer.FreelancerTaskResponseDTO;
+import com.example.MpApp.dto.Freelancer.LoginRequestDto;
 import com.example.MpApp.entity.freelancer.Freelancer;
+import com.example.MpApp.entity.freelancer.FreelancerTask;
 import com.example.MpApp.entity.freelancer.TechStack;
+import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.freelancer.FreelancerRepository;
+import com.example.MpApp.repository.freelancer.FreelancerTaskRepository;
 import com.example.MpApp.repository.freelancer.TechStackRepository;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,19 +27,36 @@ public class FreelancerServiceImpl implements FreelancerService {
     private final FreelancerRepository freelancerRepository;
     private final TechStackRepository techStackRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final FreelancerTaskRepository freelancerTaskRepository;
 
     public FreelancerServiceImpl(FreelancerRepository freelancerRepository,
-                                 TechStackRepository techStackRepository, BCryptPasswordEncoder passwordEncoder) {
+                                 TechStackRepository techStackRepository, BCryptPasswordEncoder passwordEncoder, JwtService jwtService, FreelancerTaskRepository freelancerTaskRepository) {
         this.freelancerRepository = freelancerRepository;
         this.techStackRepository = techStackRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.freelancerTaskRepository = freelancerTaskRepository;
+    }
+
+    public String extractEmail(String authHeader){
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
+        return email;
     }
 
     @Override
     public FreelancerResponseDTO create(FreelancerRequestDTO dto) {
         Freelancer freelancer = new Freelancer();
         mapDtoToEntity(dto, freelancer);
-        if(freelancer.getPassword() != null){
+        if(dto.getPassword() != null){
             freelancer.setPassword(passwordEncoder.encode(dto.getPassword()));
         }else{
             freelancer.setPassword(passwordEncoder.encode(dto.getEmail()));
@@ -47,6 +73,51 @@ public class FreelancerServiceImpl implements FreelancerService {
         mapDtoToEntity(dto, freelancer);
         Freelancer updated = freelancerRepository.save(freelancer);
         return mapEntityToDto(updated);
+    }
+
+    @Override
+    public Map<String, String> loginFreelancer(LoginRequestDto request) {
+
+        Freelancer freelancer = freelancerRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Freelancer not found"));
+
+        if (!passwordEncoder.matches(request.getPassword(), freelancer.getPassword())) {
+            return Map.of("message", "Invalid Password");
+        }
+
+        UserDetails userDetails = User.builder()
+                .username(freelancer.getEmail())
+                .password(freelancer.getPassword())
+                .roles("FREELANCER")
+                .build();
+
+        String token = jwtService.generateToken(userDetails);
+
+        String role = "FREELANCER";
+
+        return Map.of(
+                "freelancerId", freelancer.getId().toString(),
+                "email", freelancer.getEmail(),
+                "name", freelancer.getName(),
+                "token", token,
+                "role", role
+        );
+    }
+
+    @Override
+    public List<FreelancerTaskResponseDTO> getMyTasks(String authHeader) {
+        String email = extractEmail(authHeader);
+
+        Freelancer freelancer = freelancerRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("Freelancer not found")
+        );
+
+        List<FreelancerTask> tasks = freelancerTaskRepository.findByFreelancerId(freelancer.getId());
+
+        return tasks.stream()
+                .map(this::mapTaskEntityToDto)
+                .collect(Collectors.toList());
+
     }
 
     @Override
@@ -115,6 +186,26 @@ public class FreelancerServiceImpl implements FreelancerService {
         dto.setTechStackNames(freelancer.getTechStacks().stream()
                 .map(TechStack::getName)
                 .collect(Collectors.toList()));
+        return dto;
+    }
+
+    private FreelancerTaskResponseDTO mapTaskEntityToDto(FreelancerTask task) {
+        FreelancerTaskResponseDTO dto = new FreelancerTaskResponseDTO();
+        dto.setId(task.getId());
+        dto.setOrgName(task.getOrgName());
+        dto.setNoOfDays(task.getNoOfDays());
+        dto.setStartDate(task.getStartDate());
+        dto.setEndDate(task.getEndDate());
+        dto.setMeetingLink(task.getMeetingLink());
+        dto.setMeetingEmail(task.getMeetingEmail());
+        dto.setMeetingPassword(task.getMeetingPassword());
+        dto.setDepartment(task.getDepartment());
+        dto.setDomain(task.getDomain());
+        dto.setNoOfStudents(task.getNoOfStudents());
+        dto.setSyllabus(task.getSyllabus());
+        dto.setStatus(task.getStatus());
+        dto.setFreelancerIds(task.getFreelancers().stream().map(Freelancer::getId).collect(Collectors.toList()));
+        dto.setFreelancerNames(task.getFreelancers().stream().map(Freelancer::getName).collect(Collectors.toList()));
         return dto;
     }
 }
