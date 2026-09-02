@@ -25,6 +25,15 @@ public class CollegeStaffController {
         return service.loginCollegeStaff(request);
     }
 
+    @GetMapping("/myfiles")
+    public ResponseEntity<?> getStaffFiles(@RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(
+                service.getAllFiles(authHeader)
+        );
+    }
+
+
+
     // ================= FORGOT PASSWORD FLOW =================
 
     @PostMapping("/forgot-password/send-otp")
@@ -60,13 +69,13 @@ public class CollegeStaffController {
 
     // ================= STUDENT UPLOAD =================
 
-    @PostMapping("/{id}/upload-students")
+    @PostMapping("/upload-students")
     public ResponseEntity<?> uploadStudents(
-            @PathVariable Long id,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam("file") MultipartFile file) {
 
         try {
-            Map<String, Object> response = service.uploadStudentExcel(id, file);
+            Map<String, Object> response = service.uploadStudentExcel(authHeader, file);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

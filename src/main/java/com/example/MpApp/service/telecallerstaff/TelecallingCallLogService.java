@@ -78,6 +78,13 @@ public class TelecallingCallLogService {
                 .stream().map(this::toResponse).toList();
     }
 
+    public CallLogResponse updateStatus(Long callId, String status) {
+        TelecallingCallLog call = repo.findById(callId)
+                .orElseThrow(() -> new EntityNotFoundException("Call not found: " + callId));
+        call.setCallStatus(status);
+        return toResponse(repo.save(call));
+    }
+
     public List<CallLogResponse> getCallsByDate() {
         List<TelecallingCallLog> logs = repo.findByCreatedDate(LocalDate.now());
 
@@ -96,14 +103,17 @@ public class TelecallingCallLogService {
     public List<AdminCallLogResponse> getAdminCalls(LocalDate date, Long staffId) {
         return repo.findAll().stream()
                 .map(c -> new AdminCallLogResponse(
+                        c.getId(),
                         "CALL" + c.getId(),
                         c.getStaff().getName(),
                         c.getStaff().getBranch(),        // adjust if branch is a relation, e.g. c.getStaff().getBranch().getName()
                         String.valueOf(c.getEnquiry().getId()),
                         c.getEnquiry().getPhone(),
+                        c.getCallStatus(),
                         c.getCallTime(),
                         c.getEndTime(),
                         c.getDurationSeconds()
+
                 )).toList();
     }
 
@@ -119,6 +129,7 @@ public class TelecallingCallLogService {
         r.setAnsweredTime(c.getAnsweredTime());
         r.setEndTime(c.getEndTime());
         r.setDurationSeconds(c.getDurationSeconds());
+        r.setId(c.getId());
         return r;
     }
 }

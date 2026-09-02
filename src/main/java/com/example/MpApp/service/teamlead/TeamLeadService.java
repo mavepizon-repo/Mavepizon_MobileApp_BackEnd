@@ -11,6 +11,7 @@ import com.example.MpApp.dto.teamlead.TeamLeadProfileDTO;
 import com.example.MpApp.entity.OtpEntity;
 import com.example.MpApp.entity.admin.Admin;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.collegestaff.CollegeStaffFiles;
 import com.example.MpApp.entity.enums.StaffCategory;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
 import com.example.MpApp.entity.officestaff.OfficeStaffLeave;
@@ -27,6 +28,7 @@ import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.OtpRepository;
 import com.example.MpApp.repository.admin.AdminRepository;
+import com.example.MpApp.repository.collegestaff.CollegeStaffFilesRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffRepository;
@@ -78,6 +80,7 @@ public class TeamLeadService {
     private final OtpRepository otpRepository;
     private final AdminRepository adminRepository;
     private final TeamLeadAttendanceRepository teamLeadAttendanceRepository;
+    private final CollegeStaffFilesRepository collegeStaffFilesRepository;
 
 
     private final CloudinaryService cloudinaryService;
@@ -636,6 +639,97 @@ public class TeamLeadService {
         return response;
     }
 
+    public List<OfficeStaffResponseDTO> getAllStaffByBranch(String authHeader) {
+        String email = extractEmail(authHeader);
+        TeamLead teamlead = repository.findByEmail(email).orElseThrow(
+                () -> new ResourceNotFoundException("Team Lead not found for Email: " + email)
+        );
+
+        String branch = teamlead.getBranch();
+
+        List<OfficeStaff> staffs = officeStaffRepository.findByBranch(branch);
+        List<OfficeStaffResponseDTO> response = new ArrayList<>();
+
+
+        for (OfficeStaff staff : staffs) {
+
+            OfficeStaffResponseDTO dto = new OfficeStaffResponseDTO();
+
+            dto.setId(staff.getId());
+            dto.setStaffId(staff.getStaffId());
+            dto.setEmployeeId(staff.getEmployeeId());
+
+            dto.setName(staff.getName());
+            dto.setEmail(staff.getEmail());
+            dto.setMobileNumber(staff.getMobileNumber());
+
+            dto.setGender(staff.getGender());
+            dto.setBloodGroup(staff.getBloodGroup());
+
+            dto.setBranch(staff.getBranch());
+            dto.setBranchName(staff.getBranchName());
+
+            dto.setCategory(
+                    staff.getCategory() != null
+                            ? staff.getCategory().name()
+                            : null
+            );
+
+            dto.setRole(staff.getRole());
+
+            dto.setDegree(staff.getDegree());
+            dto.setYearPassedOut(staff.getYearPassedOut());
+            dto.setJoiningDate(staff.getJoiningDate());
+
+            dto.setNativePlace(staff.getNativePlace());
+
+            dto.setExperience(staff.getExperience());
+            dto.setPreviousCompany(staff.getPreviousCompany());
+            dto.setSkills(staff.getSkills());
+
+            dto.setAadhaarFile(staff.getAadhaarFile());
+            dto.setProfilePhoto(staff.getProfilePhoto());
+            dto.setResumeFile(staff.getResumeFile());
+            dto.setExperienceCertificate(staff.getExperienceCertificate());
+
+            dto.setScore(staff.getScore());
+
+            dto.setActive(staff.isActive());
+            dto.setApprovalStatus(staff.getApprovalStatus());
+
+            // createdBy
+            if (staff.getCreatedBy() instanceof TeamLead teamLead) {
+
+                CreatedByDTO createdByDTO = new CreatedByDTO();
+
+                createdByDTO.setId(teamLead.getId());
+                createdByDTO.setName(teamLead.getName());
+                createdByDTO.setEmail(teamLead.getEmail());
+                createdByDTO.setTeamLeadId(teamLead.getTeamLeadId());
+                createdByDTO.setType("TEAM_LEAD");
+
+                dto.setCreatedBy(createdByDTO);
+
+            } else if (staff.getCreatedBy() instanceof Admin admin) {
+
+                CreatedByDTO createdByDTO = new CreatedByDTO();
+
+                createdByDTO.setId(admin.getId());
+                createdByDTO.setName(admin.getUserName());
+                createdByDTO.setEmail(admin.getEmail());
+                createdByDTO.setType("ADMIN");
+
+                dto.setCreatedBy(createdByDTO);
+            }
+
+            response.add(dto);
+        }
+
+        return response;
+
+
+    }
+
 
 
     @Transactional
@@ -790,9 +884,27 @@ public class TeamLeadService {
     // ---------------- COLLEGE STAFF MANAGEMENT (UPDATED) ----------------
 
     @Transactional
-    public Map<String, String> createCollegeStaff(Long teamLeadId, CollegeStaff collegeStaff) {
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+    public Map<String, String> createCollegeStaff(String authHeader, CollegeStaff collegeStaff) {
+        String role = getMyRole();
+        String email = extractEmail(authHeader);
+
+        if(role.equals("ROLE_ADMIN")){
+           Admin admin =  adminRepository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+            );
+
+           collegeStaff.setCreatedBy(admin.getUserName());
+            collegeStaff.setCreatorRole("ADMIN");
+
+
+        }else{
+            TeamLead lead = repository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Team Lead not found for Email: " + email)
+            );
+
+            collegeStaff.setCreatedBy(lead.getName());
+            collegeStaff.setCreatorRole("TEAM_LEAD");
+        }
 
         if (collegeStaffRepository.existsByEmail(collegeStaff.getEmail())) {
             throw new DuplicateResourceException("Email Already Exists: " + collegeStaff.getEmail());
@@ -801,7 +913,14 @@ public class TeamLeadService {
             throw new DuplicateResourceException("Mobile Number Already Exists: " + collegeStaff.getMobileNumber());
         }
 
-        collegeStaff.setPassword(passwordEncoder.encode(collegeStaff.getPassword()));
+        collegeStaff.setCreatorRole(role);
+
+        if(collegeStaff.getPassword() == null){
+            collegeStaff.setPassword(passwordEncoder.encode(collegeStaff.getEmail()));
+        }else{
+            collegeStaff.setPassword(passwordEncoder.encode(collegeStaff.getPassword()));
+        }
+
         CollegeStaff savedStaff = collegeStaffRepository.save(collegeStaff);
 
         Map<String, String> response = new HashMap<>();
@@ -810,28 +929,79 @@ public class TeamLeadService {
         return response;
     }
 
+    public Map<String,String> uploadCourse( MultipartFile syllabus ,MultipartFile proposal, Long collegeStaffId) {
+
+        if (syllabus == null || syllabus.isEmpty()) {
+            throw new IllegalArgumentException("syllabus is required");
+        }
+
+        if ( proposal == null || proposal.isEmpty()) {
+            throw new IllegalArgumentException("proposal is required");
+        }
+        String proposalUrl = cloudinaryService.uploadFile(proposal, "collegeStaff/proposal");
+        String syllabusUrl = cloudinaryService.uploadFile(syllabus, "collegeStaff/syllabus");
+        CollegeStaffFiles files = new CollegeStaffFiles();
+
+        files.setStaff(collegeStaffRepository.findById(collegeStaffId).orElseThrow(
+                () -> new ResourceNotFoundException("College Staff not found for ID: " + collegeStaffId)
+        ));
+
+        files.setCourseURL(syllabusUrl);
+        files.setProposalURL(proposalUrl);
+
+        collegeStaffFilesRepository.save(files);
+
+        Map<String,String> response = new HashMap<>();
+
+        response.put("message", "Course Uploaded Successfully");
+
+        return response;
+
+    }
+
     // UNCHANGED GET METHOD
-    public List<CollegeStaff> getAllCollegeStaff(Long teamLeadId) {
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+    public List<CollegeStaff> getAllCollegeStaff() {
         return collegeStaffRepository.findAll();
     }
 
     // UNCHANGED GET METHOD
-    public CollegeStaff getCollegeStaffById(Long teamLeadId, Long collegeStaffId) {
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+    public CollegeStaff getCollegeStaffById( Long collegeStaffId) {
         return collegeStaffRepository.findById(collegeStaffId)
                 .orElseThrow(() -> new ResourceNotFoundException("College Staff not found for ID: " + collegeStaffId));
     }
 
     @Transactional
-    public Map<String, String> updateCollegeStaff(Long teamLeadId, Long collegeStaffId, CollegeStaff collegeStaff) {
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+    public Map<String, String> updateCollegeStaff(String authHeader, Long collegeStaffId, CollegeStaff collegeStaff) {
+
+        String role = getMyRole();
+        String email = extractEmail(authHeader);
+
+
+
 
         CollegeStaff existing = collegeStaffRepository.findById(collegeStaffId)
                 .orElseThrow(() -> new ResourceNotFoundException("College Staff not found for ID: " + collegeStaffId));
+
+        if(role.equals("ROLE_ADMIN")){
+            Admin admin =  adminRepository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Admin not found for Email: " + email)
+            );
+
+            existing.setCreatedBy(admin.getUserName());
+
+            existing.setCreatorRole("ADMIN");
+
+
+        }else{
+            TeamLead lead = repository.findByEmail(email).orElseThrow(
+                    () -> new ResourceNotFoundException("Team Lead not found for Email: " + email)
+            );
+
+            existing.setCreatedBy(lead.getName());
+            existing.setCreatorRole("TEAM_LEAD");
+        }
+
+
 
         if (collegeStaff.getName() != null) existing.setName(collegeStaff.getName());
         if (collegeStaff.getCollegeName() != null) existing.setCollegeName(collegeStaff.getCollegeName());
@@ -849,9 +1019,7 @@ public class TeamLeadService {
         return response;
     }
 
-    public void deleteCollegeStaff(Long teamLeadId, Long collegeStaffId) {
-        repository.findById(teamLeadId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team Lead not found for ID: " + teamLeadId));
+    public void deleteCollegeStaff(Long collegeStaffId) {
         if (!collegeStaffRepository.existsById(collegeStaffId)) {
             throw new ResourceNotFoundException("College Staff not found for ID: " + collegeStaffId);
         }

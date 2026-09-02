@@ -11,11 +11,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminCallLogResponse {
+    private Long id;
     private String callId;
     private String staffName;
     private String staffBranch;
     private String enquiryId;
     private String phoneNumber;
+    private String callStatus;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Long durationSeconds;

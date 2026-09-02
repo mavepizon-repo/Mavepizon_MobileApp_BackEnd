@@ -1,5 +1,6 @@
 package com.example.MpApp.entity.collegestaff;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
 @Entity
@@ -21,9 +22,17 @@ public class CollegeStaff {
     @Column(unique = true)
     private String email;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     private String mobileNumber;
+
+
+
+    private String createdBy;
+
+
+    private String creatorRole;
 
     // --- ADDED FIELD ---
     @Column(columnDefinition = "integer default 0")
@@ -33,6 +42,22 @@ public class CollegeStaff {
     }
 
     // ... [Keep your existing getters and setters] ...
+    public String getCreatorRole() {
+        return creatorRole;
+    }
+
+    public void setCreatorRole(String creatorRole) {
+        this.creatorRole = creatorRole;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

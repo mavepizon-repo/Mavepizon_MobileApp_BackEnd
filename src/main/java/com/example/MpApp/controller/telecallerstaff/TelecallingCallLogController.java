@@ -38,6 +38,13 @@ public class TelecallingCallLogController {
         ));
     }
 
+    @PutMapping("/api/officestaff/telecalling/call/set-status/{callId}")
+    public ResponseEntity<?> updateCall(@RequestHeader("Authorization") String authHeader, @PathVariable Long callId, @RequestParam("status") String status) {
+        return ResponseEntity.ok(
+                service.updateStatus(callId, status)
+        );
+    }
+
 
     @GetMapping("/api/admin/telecalling/calls")
     public ResponseEntity<?> getAdminCalls(

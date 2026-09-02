@@ -237,6 +237,15 @@ public class TeamLeadController {
         return ResponseEntity.ok(service.getAllStaffByTeamLead(authHeader));
     }
 
+    @GetMapping("/teamlead/staff/all-by-branch")
+    public ResponseEntity<List<OfficeStaffResponseDTO>> getAllStaffByBranchId(
+            @RequestHeader("Authorization") String authHeader
+    ){
+        return ResponseEntity.ok(
+                service.getAllStaffByBranch(authHeader)
+        );
+    }
+
 
     @GetMapping("/staff/{staffId}")
     public ResponseEntity<OfficeStaffResponseDTO> getStaffById(
@@ -459,61 +468,66 @@ public class TeamLeadController {
     // COLLEGE STAFF MANAGEMENT
     // ==========================================================
 
-    @PostMapping("/{teamLeadId}/college-staff")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_TEAM_LEAD')")
+    @PostMapping("/college-staff/register")
     public ResponseEntity<?> createCollegeStaff(
-            @PathVariable Long teamLeadId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestBody CollegeStaff collegeStaff) {
 
         return ResponseEntity.ok(
                 service.createCollegeStaff(
-                        teamLeadId,
+                        authHeader,
                         collegeStaff
                 )
         );
     }
 
-
-    @GetMapping("/{teamLeadId}/college-staff")
-    public ResponseEntity<List<CollegeStaff>>
-    getAllCollegeStaff(
-            @PathVariable Long teamLeadId) {
-
+    @PostMapping("/college-staff/upload-syllabus")
+    public ResponseEntity<?> uploadCourseFiles(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(value = "Course" , required = false) MultipartFile course,
+            @RequestParam(value = "Syllabus" , required = false) MultipartFile syllabus,
+            @RequestParam("staffId") Long staffId
+    ){
         return ResponseEntity.ok(
-                service.getAllCollegeStaff(
-                        teamLeadId
-                )
+                service.uploadCourse(syllabus,course,staffId)
         );
     }
 
 
-    @GetMapping(
-            "/{teamLeadId}/college-staff/{collegeStaffId}"
-    )
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_TEAM_LEAD')")
+    @GetMapping("/college-staff/get-all")
+    public ResponseEntity<List<CollegeStaff>>
+    getAllCollegeStaff() {
+
+        return ResponseEntity.ok(
+                service.getAllCollegeStaff()
+        );
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_TEAM_LEAD')")
+    @GetMapping("/college-staff/{collegeStaffId}")
     public ResponseEntity<CollegeStaff>
-    getCollegeStaff(
-            @PathVariable Long teamLeadId,
-            @PathVariable Long collegeStaffId) {
+    getCollegeStaff(@PathVariable Long collegeStaffId) {
 
         return ResponseEntity.ok(
                 service.getCollegeStaffById(
-                        teamLeadId,
                         collegeStaffId
                 )
         );
     }
 
 
-    @PutMapping(
-            "/{teamLeadId}/college-staff/{collegeStaffId}"
-    )
+    @PutMapping("/college-staff/update/{collegeStaffId}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_TEAM_LEAD')")
     public ResponseEntity<?> updateCollegeStaff(
-            @PathVariable Long teamLeadId,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long collegeStaffId,
             @RequestBody CollegeStaff collegeStaff) {
 
         return ResponseEntity.ok(
                 service.updateCollegeStaff(
-                        teamLeadId,
+                        authHeader,
                         collegeStaffId,
                         collegeStaff
                 )
@@ -521,15 +535,12 @@ public class TeamLeadController {
     }
 
 
-    @DeleteMapping(
-            "/{teamLeadId}/college-staff/{collegeStaffId}"
-    )
+    @DeleteMapping("/college-staff/delete/{collegeStaffId}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_TEAM_LEAD')")
     public ResponseEntity<String> deleteCollegeStaff(
-            @PathVariable Long teamLeadId,
             @PathVariable Long collegeStaffId) {
 
         service.deleteCollegeStaff(
-                teamLeadId,
                 collegeStaffId
         );
 

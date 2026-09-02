@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CallLogResponse {
+    private Long id;
     private String callId;
     private String enquiryId;
     private String staffName;

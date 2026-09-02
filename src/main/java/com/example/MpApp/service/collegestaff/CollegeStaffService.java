@@ -1,9 +1,12 @@
 package com.example.MpApp.service.collegestaff;
 
 import com.example.MpApp.config.JwtService;
+import com.example.MpApp.dto.collegestaff.CollegeStaffFileDTO;
 import com.example.MpApp.dto.collegestaff.CollegeStaffLoginRequest;
 import com.example.MpApp.entity.collegestaff.CollegeStaff;
+import com.example.MpApp.entity.collegestaff.CollegeStaffFiles;
 import com.example.MpApp.entity.student.Student;
+import com.example.MpApp.repository.collegestaff.CollegeStaffFilesRepository;
 import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
 import com.example.MpApp.repository.student.StudentRepository;
 import jakarta.transaction.Transactional;
@@ -35,8 +38,24 @@ public class CollegeStaffService {
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
+    @Autowired
+    private CollegeStaffFilesRepository collegeStaffFilesRepository;
+
     // In-memory OTP storage
     private final Map<String, String> otpStorage = new HashMap<>();
+
+    public String extractEmail(String authHeader){
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new RuntimeException("Token Required");
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
+        return email;
+    }
 
     public Map<String, String> loginCollegeStaff(CollegeStaffLoginRequest request) {
 
@@ -76,6 +95,29 @@ public class CollegeStaffService {
         response.put("message", "Login Successful");
 
         return response;
+    }
+
+    public List<CollegeStaffFileDTO> getAllFiles(String authHeader){
+        String email = extractEmail(authHeader);
+
+        CollegeStaff staff = repository.findByEmail(email).orElseThrow(() -> new RuntimeException("College Staff not found for Email: " + email));
+
+        List<CollegeStaffFiles> files = collegeStaffFilesRepository.findByStaffId(staff.getId());
+
+
+        List<CollegeStaffFileDTO> fileDTOs = new ArrayList<>();
+        for (CollegeStaffFiles file : files) {
+            CollegeStaffFileDTO fileDTO = new CollegeStaffFileDTO();
+            fileDTO.setStaffId(file.getStaff().getId());
+            fileDTO.setStaffName(file.getStaff().getName());
+            fileDTO.setCollegeName(file.getStaff().getCollegeName());
+            fileDTO.setSyllabusURL(file.getCourseURL());
+            fileDTO.setProposalURL(file.getProposalURL());
+            fileDTOs.add(fileDTO);
+
+        }
+
+        return fileDTOs;
     }
 
     // ================= FORGOT PASSWORD FLOW =================
@@ -145,8 +187,10 @@ public class CollegeStaffService {
     }
 
     @Transactional
-    public Map<String, Object> uploadStudentExcel(Long staffId, MultipartFile file) throws Exception {
+    public Map<String, Object> uploadStudentExcel(String authHeader, MultipartFile file) throws Exception {
 
+
+        String email = extractEmail(authHeader);
         // 1. Validate File
         if (file.isEmpty()) {
             throw new RuntimeException("Please upload a valid Excel file.");
@@ -158,8 +202,8 @@ public class CollegeStaffService {
         }
 
         // 2. Fetch College Staff Context
-        CollegeStaff staff = repository.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("College Staff not found for ID: " + staffId));
+        CollegeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("College Staff not found for Email: " + email));
 
         List<Student> studentsToSave = new ArrayList<>();
         int rowsProcessed = 0;
