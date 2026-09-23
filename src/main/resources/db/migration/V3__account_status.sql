@@ -1,0 +1,16 @@
+ALTER TABLE admin
+    ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+
+ALTER TABLE college_staff
+    ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+
+ALTER TABLE freelancer
+    ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+
+UPDATE office_staff
+SET active = TRUE
+WHERE active IS NULL OR (approval_status = 'APPROVED' AND active = FALSE);
+
+UPDATE team_lead
+SET active = TRUE
+WHERE active IS NULL;

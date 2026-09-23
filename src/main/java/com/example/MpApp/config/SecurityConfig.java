@@ -1,0 +1,192 @@
+package com.example.MpApp.config;
+
+import com.example.MpApp.service.CustomUserDetailsService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+import java.util.Arrays;
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Autowired
+    private LoginRateLimitFilter loginRateLimitFilter;
+
+    @Bean
+    public UserDetailsService userDetailsService(CustomUserDetailsService customUserDetailsService) {
+        return customUserDetailsService;
+    }
+
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // Never combine wildcard origins with credentials in production.
+        // Configure CORS_ALLOWED_ORIGINS as a comma-separated environment variable.
+        String allowedOrigins = System.getenv().getOrDefault(
+                "CORS_ALLOWED_ORIGINS",
+                "http://localhost:3000,http://localhost:5173,http://localhost:5000,http://localhost:8080"
+        );
+        configuration.setAllowedOrigins(
+                Arrays.stream(allowedOrigins.split(","))
+                        .map(String::trim)
+                        .filter(origin -> !origin.isBlank())
+                        .toList()
+        );
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationProvider provider) {
+        return new ProviderManager(List.of(provider));
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationProvider provider) throws Exception {
+        http
+                .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // ================= PUBLIC =================
+
+                        .requestMatchers(
+                                "/api/admin/register",
+                                "/api/admin/login",
+                                "/api/admin/forgot-password/**",
+                                "/api/freelancer/login",
+
+                                "/api/teamlead/login",
+                                "/api/teamlead/forgot-password/**",
+                                "/api/officestaff/login",
+                                "/api/officestaff/forgot-password/**",
+                                "/api/student/register",
+                                "/api/student/login",
+                                "/api/student/forgot-password/**",
+
+                                "/api/collegestaff/login",
+                                "/api/collegestaff/forgot-password/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml"
+                        ).permitAll()
+
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // ================= ADMIN =================
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // ================= TEAM LEAD =================
+                        .requestMatchers("/api/teamlead/**").hasAnyRole("TEAM_LEAD","ADMIN")
+
+                        // ================= OFFICE STAFF =================
+                        .requestMatchers("/api/officestaff/telecalling/**").hasRole("OFFICE_STAFF")
+                        .requestMatchers("/api/trainer/**").hasRole("OFFICE_STAFF")
+                        .requestMatchers("/api/officestaff/**").hasRole("OFFICE_STAFF")
+
+                        // ================= COLLEGE STAFF =================
+                        .requestMatchers("/api/collegestaff/**").hasRole("COLLEGE_STAFF")
+                                // ================= FREELANCERS =================
+                                .requestMatchers("/api/freelancer/**").hasAnyRole("FREELANCER", "ADMIN")
+                        // ================= CERTIFICATES =================
+                        // Replace the broad Certificate entry in SecurityConfig with this:
+                        .requestMatchers(HttpMethod.POST, "/api/certificates/initiate/**").hasAnyRole("ADMIN", "TEAM_LEAD", "OFFICE_STAFF")
+                        .requestMatchers(HttpMethod.POST, "/api/certificates/*/upload").hasAnyRole("ADMIN", "TEAM_LEAD")
+                        .requestMatchers(HttpMethod.DELETE, "/api/certificates/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/certificates/student/**").hasAnyRole("STUDENT", "ADMIN", "TEAM_LEAD")
+                        .requestMatchers(HttpMethod.GET, "/api/certificates/**").hasAnyRole("ADMIN", "TEAM_LEAD", "OFFICE_STAFF", "COLLEGE_STAFF")
+                        // ================= COURSE =================
+                        .requestMatchers(
+                                "/api/course/create",
+                                "/api/course/update/**",
+                                "/api/course/delete/**"
+                        ).hasAnyRole("ADMIN", "TEAM_LEAD")
+                        .requestMatchers(
+                                "/api/offered-course/create",
+                                "/api/offered-course/update/**",
+                                "/api/offered-course/delete/**"
+                        ).hasAnyRole("ADMIN", "TEAM_LEAD")
+                        .requestMatchers("/api/course/get-all", "/api/course/get/**", "/api/offered-course/get-all", "/api/offered-course/get/**")
+                        .hasAnyRole("STUDENT", "TEAM_LEAD", "ADMIN", "COLLEGE_STAFF")
+
+                        // ================= STUDENT =================
+                        .requestMatchers("/api/student/**").hasRole("STUDENT")
+                        .requestMatchers("/api/student-course/register", "/api/student-course/my-courses", "/api/student-course/my-registrations").hasRole("STUDENT")
+                        .requestMatchers("/api/student-course/get-all", "/api/student-course/get/**","/api/student-course/course/**","/api/student-course/certificate-eligible").hasAnyRole("TEAM_LEAD", "ADMIN","OFFICE_STAFF")
+                                // Delete registration - keep restricted
+                                .requestMatchers(
+                                        "/api/student-course/delete/**"
+                                ).hasAnyRole("TEAM_LEAD", "ADMIN")
+
+                        // ================= CASH PAYMENT =================
+                                .requestMatchers("/api/payment/razorpay/**").hasRole("STUDENT")
+                        .requestMatchers("/api/cash-payment/create", "/api/cash-payment/my-payments").hasRole("STUDENT")
+                        .requestMatchers("/api/cash-payment/get-all", "/api/cash-payment/get/**", "/api/cash-payment/status/**", "/api/cash-payment/staff/**", "/api/cash-payment/approve/**", "/api/cash-payment/reject/**")
+                        .hasAnyRole("OFFICE_STAFF", "ADMIN")
+                                // ================= INTERNSHIPS =================
+// Use {id} instead of ** for specific IDs to avoid the pattern matching error
+                                .requestMatchers(HttpMethod.POST, "/api/internships").hasAnyRole("ADMIN", "TEAM_LEAD")
+                                .requestMatchers(HttpMethod.PUT, "/api/internships/*").hasAnyRole("ADMIN", "TEAM_LEAD")
+                                .requestMatchers(HttpMethod.DELETE, "/api/internships/*").hasRole("ADMIN")
+
+// FIX: Change middle wildcard to single wildcard or path variable
+// to ensure the pattern is valid for the PathPatternParser
+                                .requestMatchers(HttpMethod.PATCH, "/api/internships/*/toggle-status").hasAnyRole("ADMIN", "TEAM_LEAD")
+
+// Students can register and view
+                                .requestMatchers(HttpMethod.POST, "/api/internships/register").hasRole("STUDENT")
+                                .requestMatchers(HttpMethod.GET, "/api/internships/**").permitAll()
+
+                        .anyRequest().authenticated()
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(provider)
+                .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .httpBasic(Customizer.withDefaults());
+
+        return http.build();
+    }
+}
