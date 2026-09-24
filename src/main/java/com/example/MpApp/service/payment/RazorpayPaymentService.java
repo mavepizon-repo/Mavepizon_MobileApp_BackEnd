@@ -493,10 +493,17 @@ public class RazorpayPaymentService {
                                 String.valueOf(rawAmount)
                         );
 
-                String actualCurrency =
-                        String.valueOf(
-                                gatewayPayment.get("currency")
-                        );
+                Object rawCurrency =
+        gatewayPayment.get("currency");
+
+if (rawCurrency == null) {
+    throw new IllegalArgumentException(
+            "Payment currency is missing"
+    );
+}
+
+String actualCurrency =
+        String.valueOf((Object) rawCurrency);
 
                 if (actualAmount != expectedAmount ||
                         !"INR".equalsIgnoreCase(
