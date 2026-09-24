@@ -1,27 +1,24 @@
 package com.example.MpApp.service.payment;
 
+import com.example.MpApp.config.JwtService;
 import com.example.MpApp.dto.payment.CreateRazorpayOrderRequest;
 import com.example.MpApp.dto.payment.VerifyRazorpayPaymentRequest;
 import com.example.MpApp.entity.course.Course;
 import com.example.MpApp.entity.course.StudentCourseRegistration;
 import com.example.MpApp.entity.payment.RazorpayPayment;
-import com.example.MpApp.exception.ResourceNotFoundException;
-import com.example.MpApp.config.JwtService;
 import com.example.MpApp.entity.student.Student;
-import com.example.MpApp.repository.student.StudentRepository;
-import org.springframework.security.access.AccessDeniedException;
+import com.example.MpApp.exception.ResourceNotFoundException;
 import com.example.MpApp.repository.course.CourseRepository;
 import com.example.MpApp.repository.course.StudentCourseRegistrationRepository;
 import com.example.MpApp.repository.payment.RazorpayPaymentRepository;
-
+import com.example.MpApp.repository.student.StudentRepository;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 import com.razorpay.Utils;
-
 import org.json.JSONObject;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +36,6 @@ public class RazorpayPaymentService {
     @Value("${razorpay.key.secret}")
     private String keySecret;
 
-
     @Autowired
     private RazorpayPaymentRepository paymentRepository;
 
@@ -55,12 +51,11 @@ public class RazorpayPaymentService {
     @Autowired
     private JwtService jwtService;
 
-
     /*
-    ==========================================================
-    CREATE RAZORPAY ORDER
-    ==========================================================
-    */
+     * ==========================================================
+     * CREATE RAZORPAY ORDER
+     * ==========================================================
+     */
 
     @Transactional
     public Map<String, Object> createOrder(
@@ -68,12 +63,8 @@ public class RazorpayPaymentService {
             CreateRazorpayOrderRequest request) {
 
         if (request.getRegistrationId() == null) {
-
-            throw new IllegalArgumentException(
-                    "Registration ID is required"
-            );
+            throw new IllegalArgumentException("Registration ID is required");
         }
-
 
         Student student = authenticatedStudent(token);
 
@@ -86,56 +77,51 @@ public class RazorpayPaymentService {
                                 )
                         );
 
-
         if (!registration.getStudent().getId().equals(student.getId())) {
-            throw new AccessDeniedException("You do not own this registration");
+            throw new AccessDeniedException(
+                    "You do not own this registration"
+            );
         }
 
         /*
-        ======================================================
-        SECURITY CHECK
-        ======================================================
+         * ======================================================
+         * SECURITY CHECK
+         * ======================================================
+         *
+         * Only create payment for pending registration.
+         */
 
-        Only create payment for pending registration.
-        */
-
-        if (!"PENDING_PAYMENT"
-                .equalsIgnoreCase(
-                        registration.getRegistrationStatus())) {
+        if (!"PENDING_PAYMENT".equalsIgnoreCase(
+                registration.getRegistrationStatus())) {
 
             throw new IllegalStateException(
                     "This registration is not waiting for payment"
             );
         }
 
-
         /*
-        ======================================================
-        GET REGISTRATION FEE
-        ======================================================
-        */
+         * ======================================================
+         * GET REGISTRATION FEE
+         * ======================================================
+         */
 
         Double registrationFee =
                 registration.getRegistrationFeeAmount();
 
-        if (registrationFee == null ||
-                registrationFee <= 0) {
-
+        if (registrationFee == null || registrationFee <= 0) {
             throw new IllegalStateException(
                     "Registration fee is not available"
             );
         }
 
-
         /*
-        ======================================================
-        CONVERT RUPEES TO PAISE
-        ======================================================
-        */
+         * ======================================================
+         * CONVERT RUPEES TO PAISE
+         * ======================================================
+         */
 
         long amountInPaise =
                 Math.round(registrationFee * 100);
-
 
         try {
 
@@ -145,15 +131,13 @@ public class RazorpayPaymentService {
                             keySecret
                     );
 
-
             /*
-            ==================================================
-            CREATE RAZORPAY ORDER
-            ==================================================
-            */
+             * ==================================================
+             * CREATE RAZORPAY ORDER
+             * ==================================================
+             */
 
-            JSONObject orderRequest =
-                    new JSONObject();
+            JSONObject orderRequest = new JSONObject();
 
             orderRequest.put(
                     "amount",
@@ -167,19 +151,16 @@ public class RazorpayPaymentService {
 
             orderRequest.put(
                     "receipt",
-                    "REG-" +
-                            registration.getId()
+                    "REG-" + registration.getId()
             );
 
-
             /*
-            ==================================================
-            ADD NOTES
-            ==================================================
-            */
+             * ==================================================
+             * ADD NOTES
+             * ==================================================
+             */
 
-            JSONObject notes =
-                    new JSONObject();
+            JSONObject notes = new JSONObject();
 
             notes.put(
                     "registrationId",
@@ -188,9 +169,7 @@ public class RazorpayPaymentService {
 
             notes.put(
                     "courseId",
-                    registration
-                            .getCourse()
-                            .getId()
+                    registration.getCourse().getId()
             );
 
             notes.put(
@@ -199,7 +178,6 @@ public class RazorpayPaymentService {
             );
 
             if (registration.getLocation() != null) {
-
                 notes.put(
                         "location",
                         registration.getLocation()
@@ -211,29 +189,24 @@ public class RazorpayPaymentService {
                     notes
             );
 
-
             Order order =
                     razorpayClient.orders.create(
                             orderRequest
                     );
 
-
             String razorpayOrderId =
                     order.get("id");
 
-
             /*
-            ==================================================
-            SAVE PAYMENT RECORD
-            ==================================================
-            */
+             * ==================================================
+             * SAVE PAYMENT RECORD
+             * ==================================================
+             */
 
             RazorpayPayment payment =
                     new RazorpayPayment();
 
-            payment.setRegistration(
-                    registration
-            );
+            payment.setRegistration(registration);
 
             payment.setRazorpayOrderId(
                     razorpayOrderId
@@ -243,9 +216,7 @@ public class RazorpayPaymentService {
                     amountInPaise
             );
 
-            payment.setCurrency(
-                    "INR"
-            );
+            payment.setCurrency("INR");
 
             payment.setPaymentStatus(
                     "PAYMENT_PENDING"
@@ -253,12 +224,11 @@ public class RazorpayPaymentService {
 
             paymentRepository.save(payment);
 
-
             /*
-            ==================================================
-            RESPONSE TO FRONTEND
-            ==================================================
-            */
+             * ==================================================
+             * RESPONSE TO FRONTEND
+             * ==================================================
+             */
 
             Map<String, Object> response =
                     new HashMap<>();
@@ -305,24 +275,22 @@ public class RazorpayPaymentService {
         }
     }
 
-
     /*
-    ==========================================================
-    VERIFY RAZORPAY PAYMENT
-    ==========================================================
-    */
+     * ==========================================================
+     * VERIFY RAZORPAY PAYMENT
+     * ==========================================================
+     */
 
     @Transactional
     public Map<String, Object> verifyPayment(
-            String token, VerifyRazorpayPaymentRequest request) {
+            String token,
+            VerifyRazorpayPaymentRequest request) {
 
         if (request.getRegistrationId() == null) {
-
             throw new IllegalArgumentException(
                     "Registration ID is required"
             );
         }
-
 
         if (request.getRazorpayPaymentId() == null ||
                 request.getRazorpayPaymentId().isBlank()) {
@@ -332,7 +300,6 @@ public class RazorpayPaymentService {
             );
         }
 
-
         if (request.getRazorpayOrderId() == null ||
                 request.getRazorpayOrderId().isBlank()) {
 
@@ -340,7 +307,6 @@ public class RazorpayPaymentService {
                     "Razorpay Order ID is required"
             );
         }
-
 
         if (request.getRazorpaySignature() == null ||
                 request.getRazorpaySignature().isBlank()) {
@@ -350,36 +316,34 @@ public class RazorpayPaymentService {
             );
         }
 
-
         /*
-        ======================================================
-        GET REGISTRATION
-        ======================================================
-        */
+         * ======================================================
+         * GET REGISTRATION
+         * ======================================================
+         */
 
         Student student = authenticatedStudent(token);
 
         StudentCourseRegistration registration =
                 registrationRepository
-                        .findById(
-                                request.getRegistrationId()
-                        )
+                        .findById(request.getRegistrationId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Registration Not Found"
                                 )
                         );
 
-
         if (!registration.getStudent().getId().equals(student.getId())) {
-            throw new AccessDeniedException("You do not own this registration");
+            throw new AccessDeniedException(
+                    "You do not own this registration"
+            );
         }
 
         /*
-        ======================================================
-        GET OUR PAYMENT RECORD
-        ======================================================
-        */
+         * ======================================================
+         * GET OUR PAYMENT RECORD
+         * ======================================================
+         */
 
         RazorpayPayment payment =
                 paymentRepository
@@ -392,12 +356,11 @@ public class RazorpayPaymentService {
                                 )
                         );
 
-
         /*
-        ======================================================
-        IMPORTANT SECURITY CHECK
-        ======================================================
-        */
+         * ======================================================
+         * IMPORTANT SECURITY CHECK
+         * ======================================================
+         */
 
         if (!payment
                 .getRegistration()
@@ -409,18 +372,18 @@ public class RazorpayPaymentService {
             );
         }
 
-
         /*
-        ======================================================
-        PREVENT DUPLICATE PAYMENT PROCESSING
-        ======================================================
-        */
+         * ======================================================
+         * PREVENT DUPLICATE PAYMENT PROCESSING
+         * ======================================================
+         */
 
         if ("PAID".equalsIgnoreCase(
                 payment.getPaymentStatus())) {
 
             return Map.of(
-                    "success", true,
+                    "success",
+                    true,
                     "message",
                     "Payment already verified",
                     "registrationId",
@@ -428,12 +391,11 @@ public class RazorpayPaymentService {
             );
         }
 
-
         /*
-        ======================================================
-        VERIFY ORDER ID
-        ======================================================
-        */
+         * ======================================================
+         * VERIFY ORDER ID
+         * ======================================================
+         */
 
         if (!payment
                 .getRazorpayOrderId()
@@ -444,26 +406,22 @@ public class RazorpayPaymentService {
             );
         }
 
-
         /*
-        ======================================================
-        VERIFY SIGNATURE
-        ======================================================
-
-        Razorpay requires:
-
-        HMAC_SHA256(
-            orderId + "|" + paymentId,
-            keySecret
-        )
-
-        ======================================================
-        */
+         * ======================================================
+         * VERIFY SIGNATURE
+         * ======================================================
+         *
+         * Razorpay requires:
+         *
+         * HMAC_SHA256(
+         *     orderId + "|" + paymentId,
+         *     keySecret
+         * )
+         */
 
         try {
 
-            JSONObject options =
-                    new JSONObject();
+            JSONObject options = new JSONObject();
 
             options.put(
                     "razorpay_order_id",
@@ -480,24 +438,82 @@ public class RazorpayPaymentService {
                     request.getRazorpaySignature()
             );
 
-
             boolean verified =
                     Utils.verifyPaymentSignature(
                             options,
                             keySecret
                     );
 
+            /*
+             * ==================================================
+             * VERIFY AMOUNT + CURRENCY
+             * ==================================================
+             */
+
             if (verified) {
-                RazorpayClient client = new RazorpayClient(keyId, keySecret);
-                com.razorpay.Payment gatewayPayment = client.payments.fetch(request.getRazorpayPaymentId());
-                long expectedAmount = Math.round(registration.getRegistrationFeeAmount() * 100);
-                long actualAmount = ((Number) gatewayPayment.get("amount")).longValue();
-                String actualCurrency = String.valueOf(gatewayPayment.get("currency"));
-                if (actualAmount != expectedAmount || !"INR".equalsIgnoreCase(actualCurrency)) {
-                    throw new IllegalArgumentException("Payment amount or currency mismatch");
+
+                RazorpayClient client =
+                        new RazorpayClient(
+                                keyId,
+                                keySecret
+                        );
+
+                com.razorpay.Payment gatewayPayment =
+                        client.payments.fetch(
+                                request.getRazorpayPaymentId()
+                        );
+
+                long expectedAmount =
+                        Math.round(
+                                registration
+                                        .getRegistrationFeeAmount()
+                                        * 100
+                        );
+
+                /*
+                 * Razorpay may return the amount as
+                 * different numeric types depending on
+                 * the SDK/response representation.
+                 *
+                 * Convert through String before parsing
+                 * instead of directly casting to Number/Long.
+                 */
+
+                Object rawAmount =
+                        gatewayPayment.get("amount");
+
+                if (rawAmount == null) {
+                    throw new IllegalArgumentException(
+                            "Payment amount is missing"
+                    );
+                }
+
+                long actualAmount =
+                        Long.parseLong(
+                                String.valueOf(rawAmount)
+                        );
+
+                String actualCurrency =
+                        String.valueOf(
+                                gatewayPayment.get("currency")
+                        );
+
+                if (actualAmount != expectedAmount ||
+                        !"INR".equalsIgnoreCase(
+                                actualCurrency
+                        )) {
+
+                    throw new IllegalArgumentException(
+                            "Payment amount or currency mismatch"
+                    );
                 }
             }
 
+            /*
+             * ==================================================
+             * INVALID SIGNATURE
+             * ==================================================
+             */
 
             if (!verified) {
 
@@ -505,21 +521,18 @@ public class RazorpayPaymentService {
                         "FAILED"
                 );
 
-                paymentRepository.save(
-                        payment
-                );
+                paymentRepository.save(payment);
 
                 throw new IllegalArgumentException(
                         "Invalid Razorpay payment signature"
                 );
             }
 
-
             /*
-            ==================================================
-            PAYMENT VERIFIED
-            ==================================================
-            */
+             * ==================================================
+             * PAYMENT VERIFIED
+             * ==================================================
+             */
 
             payment.setRazorpayPaymentId(
                     request.getRazorpayPaymentId()
@@ -537,16 +550,13 @@ public class RazorpayPaymentService {
                     LocalDateTime.now()
             );
 
-            paymentRepository.save(
-                    payment
-            );
-
+            paymentRepository.save(payment);
 
             /*
-            ==================================================
-            CONFIRM REGISTRATION
-            ==================================================
-            */
+             * ==================================================
+             * CONFIRM REGISTRATION
+             * ==================================================
+             */
 
             registration.setPaymentStatus(
                     "PAID"
@@ -556,42 +566,61 @@ public class RazorpayPaymentService {
                     "CONFIRMED"
             );
 
-            Long courseId = registration.getCourse().getId();
+            Long courseId =
+                    registration
+                            .getCourse()
+                            .getId();
 
-            Course course = courseRepository.findById(courseId).orElseThrow(() -> new ResourceNotFoundException("Course Not Found"));
-            String branch = registration.getLocation();
-            String mode = registration.getMode();
+            Course course =
+                    courseRepository
+                            .findById(courseId)
+                            .orElseThrow(() ->
+                                    new ResourceNotFoundException(
+                                            "Course Not Found"
+                                    )
+                            );
 
-            if(mode.equalsIgnoreCase("ONLINE")) {
-                course.setAvailableSeatsOnline(course.getAvailableSeatsOnline() - 1);
+            String branch =
+                    registration.getLocation();
+
+            String mode =
+                    registration.getMode();
+
+            if (mode.equalsIgnoreCase("ONLINE")) {
+
+                course.setAvailableSeatsOnline(
+                        course.getAvailableSeatsOnline() - 1
+                );
             }
 
-            if(mode.equalsIgnoreCase("OFFLINE")) {
-                if(branch.equalsIgnoreCase("Tirunelveli")) {
-                    course.setAvailableSeatsTirunelveli(course.getAvailableSeatsTirunelveli() - 1);
-                } else if(branch.equalsIgnoreCase("Tisaiyanvilai")) {
-                    course.setAvailableSeatsTisaiyanvilai(course.getAvailableSeatsTisaiyanvilai() - 1);
+            if (mode.equalsIgnoreCase("OFFLINE")) {
+
+                if (branch.equalsIgnoreCase("Tirunelveli")) {
+
+                    course.setAvailableSeatsTirunelveli(
+                            course.getAvailableSeatsTirunelveli() - 1
+                    );
+
+                } else if (branch.equalsIgnoreCase(
+                        "Tisaiyanvilai")) {
+
+                    course.setAvailableSeatsTisaiyanvilai(
+                            course.getAvailableSeatsTisaiyanvilai() - 1
+                    );
                 }
             }
 
             courseRepository.save(course);
 
-
-
-
-
-
-
             registrationRepository.save(
                     registration
             );
 
-
             /*
-            ==================================================
-            RESPONSE
-            ==================================================
-            */
+             * ==================================================
+             * RESPONSE
+             * ==================================================
+             */
 
             Map<String, Object> response =
                     new HashMap<>();
@@ -652,45 +681,105 @@ public class RazorpayPaymentService {
         }
     }
 
-
     /*
-    ==========================================================
-    GET PAYMENT BY ID
-    ==========================================================
-    */
+     * ==========================================================
+     * GET PAYMENT BY ID
+     * ==========================================================
+     */
 
     public RazorpayPayment getPaymentById(
-            String token, Long id) {
+            String token,
+            Long id) {
 
-        Student student = authenticatedStudent(token);
-        RazorpayPayment payment = paymentRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Payment Not Found"));
-        if (!payment.getRegistration().getStudent().getId().equals(student.getId())) throw new AccessDeniedException("You do not own this payment");
+        Student student =
+                authenticatedStudent(token);
+
+        RazorpayPayment payment =
+                paymentRepository
+                        .findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Payment Not Found"
+                                )
+                        );
+
+        if (!payment
+                .getRegistration()
+                .getStudent()
+                .getId()
+                .equals(student.getId())) {
+
+            throw new AccessDeniedException(
+                    "You do not own this payment"
+            );
+        }
+
         return payment;
     }
 
-
     /*
-    ==========================================================
-    GET PAYMENTS FOR REGISTRATION
-    ==========================================================
-    */
+     * ==========================================================
+     * GET PAYMENTS FOR REGISTRATION
+     * ==========================================================
+     */
 
-    public List<RazorpayPayment>
-    getPaymentsByRegistration(
-            String token, Long registrationId) {
+    public List<RazorpayPayment> getPaymentsByRegistration(
+            String token,
+            Long registrationId) {
 
-        Student student = authenticatedStudent(token);
-        StudentCourseRegistration registration = registrationRepository.findById(registrationId).orElseThrow(() -> new ResourceNotFoundException("Registration Not Found"));
-        if (!registration.getStudent().getId().equals(student.getId())) throw new AccessDeniedException("You do not own this registration");
+        Student student =
+                authenticatedStudent(token);
+
+        StudentCourseRegistration registration =
+                registrationRepository
+                        .findById(registrationId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Registration Not Found"
+                                )
+                        );
+
+        if (!registration
+                .getStudent()
+                .getId()
+                .equals(student.getId())) {
+
+            throw new AccessDeniedException(
+                    "You do not own this registration"
+            );
+        }
+
         return paymentRepository
                 .findByRegistrationId(
                         registrationId
                 );
     }
 
-    private Student authenticatedStudent(String token) {
-        if (token == null || token.isBlank()) throw new AccessDeniedException("Authentication required");
-        String email = jwtService.extractEmail(token);
-        return studentRepository.findByEmail(email).orElseThrow(() -> new AccessDeniedException("Authenticated student not found"));
+    /*
+     * ==========================================================
+     * AUTHENTICATED STUDENT
+     * ==========================================================
+     */
+
+    private Student authenticatedStudent(
+            String token) {
+
+        if (token == null || token.isBlank()) {
+
+            throw new AccessDeniedException(
+                    "Authentication required"
+            );
+        }
+
+        String email =
+                jwtService.extractEmail(token);
+
+        return studentRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new AccessDeniedException(
+                                "Authenticated student not found"
+                        )
+                );
     }
 }
