@@ -300,4 +300,20 @@ public class TeamLead implements StaffCreator {
     public Integer getPerformanceScore() {
         return score;
     }
+
+    /**
+     * Bumped on every password change. Tokens carry the value they were issued
+     * with, so incrementing this invalidates every token minted beforehand.
+     */
+    @Column(name = "token_version", nullable = false)
+    @JsonIgnore
+    private int tokenVersion = 0;
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(int tokenVersion) {
+        this.tokenVersion = tokenVersion;
+    }
 }

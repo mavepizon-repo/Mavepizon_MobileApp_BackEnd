@@ -4,19 +4,18 @@ import com.example.MpApp.security.PasswordPolicy;
 
 import com.example.MpApp.config.JwtService;
 import com.example.MpApp.exception.InvalidCredentialsException;
+import com.example.MpApp.exception.OtpException;
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.student.StudentLoginRequest;
 import com.example.MpApp.dto.student.StudentRegisterRequest;
-import com.example.MpApp.entity.OtpEntity;
 import com.example.MpApp.entity.course.StudentCourseRegistration;
 import com.example.MpApp.entity.student.Notification;
 import com.example.MpApp.entity.student.Student;
-import com.example.MpApp.repository.OtpRepository;
 import com.example.MpApp.repository.course.StudentCourseRegistrationRepository;
 import com.example.MpApp.repository.student.NotificationRepository;
 import com.example.MpApp.repository.student.StudentRepository;
 import com.example.MpApp.service.CloudinaryService;
-import com.example.MpApp.service.EmailService;
+import com.example.MpApp.service.otp.OtpService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -51,11 +50,7 @@ public class StudentService {
     private NotificationRepository notificationRepository;
 
     @Autowired
-    private OtpRepository otpRepository;
-
-
-    @Autowired
-    private EmailService emailService;
+    private OtpService otpService;
 
     public Map<String, Object> getStudentDashboard(Long studentId) {
         Student student = repository.findById(studentId)
@@ -184,7 +179,7 @@ public class StudentService {
                         .build();
 
         // ✅ Generate token using UserDetails
-        String token = jwtService.generateToken(userDetails);
+        String token = jwtService.generateToken(userDetails, student.getTokenVersion());
 
         Map<String, String> response = new HashMap<>();
         response.put("token", token);
@@ -203,83 +198,39 @@ public class StudentService {
 
     // ================= FORGOT PASSWORD =================
 
+    private static final String ROLE = "STUDENT";
 
-    private static final SecureRandom OTP_RANDOM = new SecureRandom();
-
-    @Transactional
+    /**
+     * Always acknowledges the request, whether or not the address is registered.
+     * A distinct "Email Not Found" would let anyone enumerate student accounts.
+     */
     public String sendOtp(String email) {
-        repository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email Not Found"));
-
-        OtpEntity existing = otpRepository.findByEmail(email).orElse(null);
-        if (existing != null && existing.getLastSentAt() != null
-                && existing.getLastSentAt().plusSeconds(30).isAfter(LocalDateTime.now())) {
-            throw new RuntimeException("Please wait before requesting another OTP");
-        }
-
-        String otp = String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
-        otpRepository.deleteByEmail(email);
-
-        OtpEntity otpEntity = new OtpEntity();
-        otpEntity.setEmail(email);
-        otpEntity.setOtpCode(passwordEncoder.encode(otp));
-        otpEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
-        otpEntity.setVerificationAttempts(0);
-        otpEntity.setLastSentAt(LocalDateTime.now());
-        otpRepository.save(otpEntity);
-
-        emailService.sendOtpEmail(email, otp);
-        return "OTP sent successfully to your registered email.";
+        return otpService.issueOtp(email, ROLE, repository.findByEmail(email).isPresent());
     }
 
-    @Transactional
-    public String verifyOtp(String email, String otp) {
-        OtpEntity otpEntity = otpRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("OTP not requested"));
-
-        if (otpEntity.getExpiryTime().isBefore(LocalDateTime.now())) {
-            otpRepository.deleteByEmail(email);
-            throw new RuntimeException("OTP has expired");
-        }
-
-        if (otpEntity.getVerificationAttempts() >= 5) {
-            otpRepository.deleteByEmail(email);
-            throw new RuntimeException("Too many failed OTP attempts");
-        }
-
-        if (!passwordEncoder.matches(otp, otpEntity.getOtpCode())) {
-            otpEntity.setVerificationAttempts(otpEntity.getVerificationAttempts() + 1);
-            if (otpEntity.getVerificationAttempts() >= 5) {
-                otpRepository.deleteByEmail(email);
-            } else {
-                otpRepository.save(otpEntity);
-            }
-            throw new RuntimeException("Invalid OTP");
-        }
-
-        // Consume the OTP immediately after successful verification so it cannot be reused.
-        otpRepository.deleteByEmail(email);
-        return "OTP Verified Successfully";
+    public void verifyOtp(String email, String otp) {
+        otpService.verifyOtp(email, ROLE, otp);
     }
 
     @Transactional
     public String resetPassword(String email, String otp, String newPassword) {
-        // 1. Reuse your DB-backed verifyOtp logic
-        // This will throw a RuntimeException if OTP is invalid or expired
-        verifyOtp(email, otp);
-
-        // 2. Retrieve student
-        Student student = repository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email Not Found"));
-
-        // 3. Update password
+        // Validate before consuming, so the code survives a rejected password.
         PasswordPolicy.validate(newPassword);
+
+        // Consumes the code, so it cannot be replayed for a second reset.
+        otpService.consumeVerifiedOtp(email, ROLE, otp);
+
+        Student student = repository.findByEmail(email)
+                .orElseThrow(() -> new OtpException("OTP_NOT_REQUESTED",
+                        "No OTP has been requested for this account. Please request an OTP first."));
+
         student.setPassword(passwordEncoder.encode(newPassword));
+
+        // Revoke every token issued before this reset. Without this the previous
+        // holder of a leaked token keeps access for the full 24h expiry.
+        student.setTokenVersion(student.getTokenVersion() + 1);
+
         repository.save(student);
-
-        // 4. Delete the OTP record so it cannot be used again
-        otpRepository.deleteByEmail(email);
-
         return "Password Reset Successful";
     }
 
@@ -331,6 +282,10 @@ public class StudentService {
         // 3. Encrypt and save
         PasswordPolicy.validate(newPassword);
         student.setPassword(passwordEncoder.encode(newPassword));
+
+        // Invalidate tokens issued under the old password.
+        student.setTokenVersion(student.getTokenVersion() + 1);
+
         repository.save(student);
 
         return "Password Changed Successfully";
@@ -382,6 +337,10 @@ public class StudentService {
         }
         PasswordPolicy.validate(newPassword);
         student.setPassword(passwordEncoder.encode(newPassword));
+
+        // Invalidate tokens issued under the old password.
+        student.setTokenVersion(student.getTokenVersion() + 1);
+
         repository.save(student);
         return "Password Changed Successfully";
     }

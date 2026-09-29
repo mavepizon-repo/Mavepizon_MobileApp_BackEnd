@@ -99,4 +99,35 @@ public class CustomUserDetailsService implements UserDetailsService {
             default -> false;
         };
     }
+
+    /**
+     * Current token counter for an account, used to reject tokens that were
+     * issued before a password change. Resolved per role because the same
+     * address can hold several independent accounts.
+     *
+     * @return the stored counter, or -1 when no such account exists
+     */
+    public int getTokenVersion(String email, String role) {
+        return switch (role) {
+            case "ADMIN" -> adminRepository.findByEmail(email)
+                    .map(a -> a.getTokenVersion())
+                    .orElse(-1);
+            case "COLLEGE_STAFF" -> collegeStaffRepository.findByEmail(email)
+                    .map(s -> s.getTokenVersion())
+                    .orElse(-1);
+            case "TEAM_LEAD" -> teamLeadRepository.findByEmail(email)
+                    .map(s -> s.getTokenVersion())
+                    .orElse(-1);
+            case "OFFICE_STAFF" -> officeStaffRepository.findByEmail(email)
+                    .map(s -> s.getTokenVersion())
+                    .orElse(-1);
+            case "FREELANCER" -> freelancerRepository.findByEmail(email)
+                    .map(f -> f.getTokenVersion())
+                    .orElse(-1);
+            case "STUDENT" -> studentRepository.findByEmail(email)
+                    .map(s -> s.getTokenVersion())
+                    .orElse(-1);
+            default -> -1;
+        };
+    }
 }

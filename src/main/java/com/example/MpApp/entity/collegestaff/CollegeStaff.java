@@ -2,6 +2,7 @@ package com.example.MpApp.entity.collegestaff;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "college_staff")
@@ -93,6 +94,22 @@ public class CollegeStaff {
 
     public void setUploadedStudentsCount(Integer uploadedStudentsCount) {
         this.uploadedStudentsCount = uploadedStudentsCount;
+    }
+
+    /**
+     * Bumped on every password change. Tokens carry the value they were issued
+     * with, so incrementing this invalidates every token minted beforehand.
+     */
+    @Column(name = "token_version", nullable = false)
+    @JsonIgnore
+    private int tokenVersion = 0;
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(int tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 
     public Boolean getActive() {

@@ -4,6 +4,7 @@ import com.example.MpApp.dto.Freelancer.FreelancerRequestDTO;
 import com.example.MpApp.dto.Freelancer.FreelancerResponseDTO;
 import com.example.MpApp.dto.Freelancer.FreelancerTaskResponseDTO;
 import com.example.MpApp.dto.Freelancer.LoginRequestDto;
+
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,4 +42,10 @@ public interface FreelancerService {
     Map<String, String> loginFreelancer(LoginRequestDto request);
 
     List<FreelancerTaskResponseDTO> getMyTasks(String authHeader);
+
+    String sendOtp(String email);
+
+    void verifyOtp(String email, String otp);
+
+    String resetPassword(String email, String otp, String newPassword);
 }

@@ -1,6 +1,9 @@
 package com.example.MpApp.controller.student;
 
 import com.example.MpApp.dto.common.ChangePasswordRequest;
+import com.example.MpApp.dto.common.ForgotPasswordRequest;
+import com.example.MpApp.dto.common.OtpRequest;
+import com.example.MpApp.dto.common.VerifyOtpRequest;
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.student.StudentLoginRequest;
 import com.example.MpApp.dto.student.StudentRegisterRequest;
@@ -10,10 +13,6 @@ import com.example.MpApp.service.student.NotificationService;
 import com.example.MpApp.service.student.StudentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -70,26 +69,33 @@ public class StudentController {
 
     // ================= SEND OTP =================
     @PostMapping("/forgot-password/send-otp")
-    public ResponseEntity<?> sendOtp(
-            @RequestParam @NotBlank @Email String email) {
-        return ResponseEntity.ok(service.sendOtp(email));
+    public ResponseEntity<?> sendOtp(@Valid @RequestBody OtpRequest request) {
+        return ResponseEntity.ok(Map.of("message", service.sendOtp(request.getEmail())));
+    }
+
+    // ================= RESEND OTP =================
+    @PostMapping("/forgot-password/resend-otp")
+    public ResponseEntity<?> resendOtp(@Valid @RequestBody OtpRequest request) {
+        return ResponseEntity.ok(Map.of("message", service.sendOtp(request.getEmail())));
     }
 
     // ================= VERIFY OTP =================
     @PostMapping("/forgot-password/verify-otp")
-    public ResponseEntity<?> verifyOtp(
-            @RequestParam @NotBlank @Email String email,
-            @RequestParam @NotBlank @Pattern(regexp = "^\\d{6}$") String otp) {
-        return ResponseEntity.ok(service.verifyOtp(email, otp));
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        service.verifyOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(Map.of("message", "OTP Verified Successfully"));
     }
 
     // ================= RESET PASSWORD =================
     @PostMapping("/forgot-password/reset")
-    public ResponseEntity<?> resetPassword(
-            @RequestParam @NotBlank @Email String email,
-            @RequestParam @NotBlank @Pattern(regexp = "^\\d{6}$") String otp,
-            @RequestParam @NotBlank @Size(min = 8) String newPassword) {
-        return ResponseEntity.ok(service.resetPassword(email, otp, newPassword));
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(
+                Map.of("message", service.resetPassword(
+                        request.getEmail(),
+                        request.getOtp(),
+                        request.getNewPassword()
+                ))
+        );
     }
 
     // ================= UPDATE PROFILE =================

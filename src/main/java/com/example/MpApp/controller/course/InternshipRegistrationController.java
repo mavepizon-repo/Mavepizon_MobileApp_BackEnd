@@ -14,7 +14,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/student-internship")
-@CrossOrigin("*")
 public class InternshipRegistrationController {
 
     @Autowired

@@ -1,20 +1,28 @@
 package com.example.MpApp.controller.freelancer;
 
+import com.example.MpApp.dto.common.ForgotPasswordRequest;
+import com.example.MpApp.dto.common.OtpRequest;
+import com.example.MpApp.dto.common.VerifyOtpRequest;
 import com.example.MpApp.dto.Freelancer.FreelancerRequestDTO;
 import com.example.MpApp.dto.Freelancer.FreelancerResponseDTO;
 import com.example.MpApp.dto.Freelancer.FreelancerTaskResponseDTO;
 import com.example.MpApp.dto.Freelancer.LoginRequestDto;
 import com.example.MpApp.service.freelancer.FreelancerService;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.web.bind.annotation.*;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 import java.util.Map;
+
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -28,11 +36,16 @@ public class FreelancerController {
     }
 
     @PostMapping("/freelancer/login")
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequestDto request) {
-        Map<String, String> response = freelancerService.loginFreelancer(request);
+    public ResponseEntity<Map<String, String>> login(
+            @Valid @RequestBody LoginRequestDto request) {
+
+        Map<String, String> response =
+                freelancerService.loginFreelancer(request);
 
         if (response.containsKey("message")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(response);
         }
 
         return ResponseEntity.ok(response);
@@ -47,23 +60,65 @@ public class FreelancerController {
         );
     }
 
+    // ==========================================================
+    // FORGOT & RESET PASSWORD
+    // ==========================================================
+
+    @PostMapping("/freelancer/forgot-password/send-otp")
+    public ResponseEntity<?> sendOtp(
+            @Valid @RequestBody OtpRequest request) {
+
+        return ResponseEntity.ok(
+                Map.of("message", freelancerService.sendOtp(request.getEmail()))
+        );
+    }
+
+    @PostMapping("/freelancer/forgot-password/resend-otp")
+    public ResponseEntity<?> resendOtp(
+            @Valid @RequestBody OtpRequest request) {
+
+        return ResponseEntity.ok(
+                Map.of("message", freelancerService.sendOtp(request.getEmail()))
+        );
+    }
+
+    @PostMapping("/freelancer/forgot-password/verify-otp")
+    public ResponseEntity<?> verifyOtp(
+            @Valid @RequestBody VerifyOtpRequest request) {
+
+        freelancerService.verifyOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(Map.of("message", "OTP Verified Successfully"));
+    }
+
+    @PostMapping("/freelancer/forgot-password/reset")
+    public ResponseEntity<?> resetPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        freelancerService.resetPassword(
+                                request.getEmail(),
+                                request.getOtp(),
+                                request.getNewPassword()
+                        )
+                )
+        );
+    }
+
     @PostMapping(
             value = "/admin/freelancers/create",
             consumes = "multipart/form-data"
     )
     public ResponseEntity<FreelancerResponseDTO> create(
             @Valid @RequestPart("data") FreelancerRequestDTO dto,
-
             @RequestPart(value = "profile", required = false)
             MultipartFile profile,
-
             @RequestPart(value = "aadhaar", required = false)
             MultipartFile aadhaar,
-
             @RequestPart(value = "resume", required = false)
             MultipartFile resume
     ) {
-
         return ResponseEntity.ok(
                 freelancerService.create(
                         dto,
@@ -74,26 +129,20 @@ public class FreelancerController {
         );
     }
 
-
     @PutMapping(
             value = "/admin/freelancers/update/{id}",
             consumes = "multipart/form-data"
     )
     public ResponseEntity<FreelancerResponseDTO> update(
             @PathVariable Long id,
-
             @Valid @RequestPart("data") FreelancerRequestDTO dto,
-
             @RequestPart(value = "profile", required = false)
             MultipartFile profile,
-
             @RequestPart(value = "aadhaar", required = false)
             MultipartFile aadhaar,
-
             @RequestPart(value = "resume", required = false)
             MultipartFile resume
     ) {
-
         return ResponseEntity.ok(
                 freelancerService.update(
                         id,
@@ -106,14 +155,21 @@ public class FreelancerController {
     }
 
     @GetMapping("/admin/freelancers/{id}")
-    public ResponseEntity<FreelancerResponseDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(freelancerService.getById(id));
+    public ResponseEntity<FreelancerResponseDTO> getById(
+            @PathVariable Long id) {
+
+        return ResponseEntity.ok(
+                freelancerService.getById(id)
+        );
     }
 
     @GetMapping("/admin/freelancers/get-all")
     public ResponseEntity<Page<FreelancerResponseDTO>> getAll(
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
-        return ResponseEntity.ok(freelancerService.getAll(pageable));
+
+        return ResponseEntity.ok(
+                freelancerService.getAll(pageable)
+        );
     }
 
     @DeleteMapping("/admin/freelancers/delete/{id}")
@@ -123,12 +179,20 @@ public class FreelancerController {
     }
 
     @GetMapping("/admin/freelancers/filter/district/{district}")
-    public ResponseEntity<List<FreelancerResponseDTO>> filterByDistrict(@PathVariable String district) {
-        return ResponseEntity.ok(freelancerService.filterByDistrict(district));
+    public ResponseEntity<List<FreelancerResponseDTO>> filterByDistrict(
+            @PathVariable String district) {
+
+        return ResponseEntity.ok(
+                freelancerService.filterByDistrict(district)
+        );
     }
 
     @GetMapping("/admin/freelancers/filter/techstack/{techStackName}")
-    public ResponseEntity<List<FreelancerResponseDTO>> filterByTechStack(@PathVariable String techStackName) {
-        return ResponseEntity.ok(freelancerService.filterByTechStack(techStackName));
+    public ResponseEntity<List<FreelancerResponseDTO>> filterByTechStack(
+            @PathVariable String techStackName) {
+
+        return ResponseEntity.ok(
+                freelancerService.filterByTechStack(techStackName)
+        );
     }
 }

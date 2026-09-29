@@ -21,7 +21,6 @@ import com.example.MpApp.exception.ForbiddenException;
 import com.example.MpApp.exception.InvalidCredentialsException;
 import com.example.MpApp.exception.ResourceNotFoundException;
 
-import com.example.MpApp.repository.OtpRepository;
 import com.example.MpApp.repository.admin.AdminRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffLeaveRepository;
 import com.example.MpApp.repository.officestaff.OfficeStaffPermissionRepository;
@@ -30,9 +29,10 @@ import com.example.MpApp.repository.task.TaskRepository;
 import com.example.MpApp.repository.task.TaskUpdateRepository;
 
 import com.example.MpApp.config.JwtService;
-import com.example.MpApp.service.EmailService;
 
 import jakarta.transaction.Transactional;
+import com.example.MpApp.exception.OtpException;
+import com.example.MpApp.service.otp.OtpService;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.core.Authentication;
@@ -60,10 +60,9 @@ public class OfficeStaffService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final OfficeStaffLeaveRepository leaveRepository;
     private final OfficeStaffPermissionRepository permissionRepository;
-    private final OtpRepository otpRepository;
+    private final OtpService otpService;
 
     private final OfficeStaffAttendanceService attendanceService;
-    private final EmailService emailService;
 
 
     // =========================================================
@@ -147,7 +146,7 @@ public class OfficeStaffService {
                         .build();
 
         String token =
-                jwtService.generateToken(userDetails);
+                jwtService.generateToken(userDetails, staff.getTokenVersion());
 
         String role =
                 staff.getRole() == null
@@ -785,183 +784,48 @@ public class OfficeStaffService {
     }
 
 
+    // FORGOT PASSWORD (delegates to the shared OtpService)
     // =========================================================
-    // OTP
-    // =========================================================
 
-    private static final SecureRandom OTP_RANDOM =
-            new SecureRandom();
+    private static final String ROLE = "OFFICE_STAFF";
 
-
-    @Transactional
-    public String sendOtp(
-            String email) {
-
-        repository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Email Not Found"
-                        )
-                );
-
-        OtpEntity existing =
-                otpRepository
-                        .findByEmail(email)
-                        .orElse(null);
-
-        if (existing != null &&
-                existing.getLastSentAt() != null &&
-                existing.getLastSentAt()
-                        .plusSeconds(30)
-                        .isAfter(LocalDateTime.now())) {
-
-            throw new RuntimeException(
-                    "Please wait before requesting another OTP"
-            );
-        }
-
-        String otp =
-                String.format(
-                        "%06d",
-                        OTP_RANDOM.nextInt(1_000_000)
-                );
-
-        otpRepository.deleteByEmail(email);
-
-        OtpEntity otpEntity =
-                new OtpEntity();
-
-        otpEntity.setEmail(email);
-
-        otpEntity.setOtpCode(
-                passwordEncoder.encode(otp)
-        );
-
-        otpEntity.setExpiryTime(
-                LocalDateTime.now().plusMinutes(5)
-        );
-
-        otpEntity.setVerificationAttempts(
-                0
-        );
-
-        otpEntity.setLastSentAt(
-                LocalDateTime.now()
-        );
-
-        otpRepository.save(
-                otpEntity
-        );
-
-        emailService.sendOtpEmail(
-                email,
-                otp
-        );
-
-        return "OTP sent successfully to your registered email.";
+    /**
+     * Acknowledges the request whether or not the address is registered.
+     * Returning a distinct "Email Not Found" would allow account enumeration.
+     */
+    public String sendOtp(String email) {
+        return otpService.issueOtp(email, ROLE, repository.findByEmail(email).isPresent());
     }
 
-
-    @Transactional
-    public String verifyOtp(
-            String email,
-            String otp) {
-
-        OtpEntity otpEntity =
-                otpRepository.findByEmail(email)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "OTP not requested"
-                                )
-                        );
-
-        if (otpEntity.getExpiryTime()
-                .isBefore(LocalDateTime.now())) {
-
-            otpRepository.deleteByEmail(email);
-
-            throw new RuntimeException(
-                    "OTP has expired"
-            );
-        }
-
-        if (otpEntity.getVerificationAttempts() >= 5) {
-
-            otpRepository.deleteByEmail(email);
-
-            throw new RuntimeException(
-                    "Too many failed OTP attempts"
-            );
-        }
-
-        if (!passwordEncoder.matches(
-                otp,
-                otpEntity.getOtpCode())) {
-
-            otpEntity.setVerificationAttempts(
-                    otpEntity.getVerificationAttempts() + 1
-            );
-
-            if (otpEntity.getVerificationAttempts() >= 5) {
-
-                otpRepository.deleteByEmail(
-                        email
-                );
-
-            } else {
-
-                otpRepository.save(
-                        otpEntity
-                );
-            }
-
-            throw new RuntimeException(
-                    "Invalid OTP"
-            );
-        }
-
-        otpRepository.deleteByEmail(
-                email
-        );
-
-        return "OTP Verified Successfully";
+    public void verifyOtp(String email, String otp) {
+        otpService.verifyOtp(email, ROLE, otp);
     }
 
-
+    /**
+     * Transactional so that consuming the OTP and writing the new password are
+     * a single unit. Without it {@code consumeVerifiedOtp} committed on its own,
+     * so a password that then failed {@code PasswordPolicy.validate} left the
+     * code already destroyed and the user had to start the entire flow again.
+     */
     @Transactional
-    public String resetPassword(
-            String email,
-            String otp,
-            String newPassword) {
-
-        verifyOtp(
-                email,
-                otp
-        );
-
-        OfficeStaff staff =
-                repository.findByEmail(email)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Email Not Found"
-                                )
-                        );
-
+    public String resetPassword(String email, String otp, String newPassword) {
+        // Validate before consuming, so the code survives a rejected password.
         PasswordPolicy.validate(newPassword);
-        staff.setPassword(
-                passwordEncoder.encode(
-                        newPassword
-                )
-        );
 
-        repository.save(
-                staff
-        );
+        // Consumes the code so it cannot be replayed for a second reset.
+        otpService.consumeVerifiedOtp(email, ROLE, otp);
 
-        otpRepository.deleteByEmail(
-                email
-        );
+        OfficeStaff staff = repository.findByEmail(email)
+                .orElseThrow(() -> new OtpException("OTP_NOT_REQUESTED",
+                        "No OTP has been requested for this account. Please request an OTP first."));
 
+        staff.setPassword(passwordEncoder.encode(newPassword));
+
+        // Revoke every token issued before this reset. Without this, whoever
+        // held a leaked token keeps access for the full 24h expiry.
+        staff.setTokenVersion(staff.getTokenVersion() + 1);
+
+        repository.save(staff);
         return "Password Reset Successful";
     }
 
@@ -1041,12 +905,14 @@ public class OfficeStaffService {
         }
 
         PasswordPolicy.validate(newPassword);
+
         staff.setPassword(
                 passwordEncoder.encode(
                         newPassword
                 )
         );
 
+        staff.setTokenVersion(staff.getTokenVersion() + 1);
         repository.save(
                 staff
         );

@@ -1,13 +1,12 @@
 package com.example.MpApp.controller.collegestaff;
 
 import com.example.MpApp.dto.collegestaff.CollegeStaffLoginRequest;
+import com.example.MpApp.dto.common.ChangePasswordRequest;
 import com.example.MpApp.dto.common.ForgotPasswordRequest;
+import com.example.MpApp.dto.common.OtpRequest;
+import com.example.MpApp.dto.common.VerifyOtpRequest;
 import com.example.MpApp.service.collegestaff.CollegeStaffService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +18,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/collegestaff")
-@CrossOrigin("*")
 @Validated
 public class CollegeStaffController {
 
@@ -38,13 +36,19 @@ public class CollegeStaffController {
     }
 
     @PostMapping("/forgot-password/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestParam @NotBlank @Email String email) {
-        return ResponseEntity.ok(Map.of("message", service.sendOtp(email)));
+    public ResponseEntity<?> sendOtp(@Valid @RequestBody OtpRequest request) {
+        return ResponseEntity.ok(Map.of("message", service.sendOtp(request.getEmail())));
+    }
+
+    @PostMapping("/forgot-password/resend-otp")
+    public ResponseEntity<?> resendOtp(@Valid @RequestBody OtpRequest request) {
+        return ResponseEntity.ok(Map.of("message", service.sendOtp(request.getEmail())));
     }
 
     @PostMapping("/forgot-password/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestParam @NotBlank @Email String email, @RequestParam @NotBlank @Pattern(regexp = "^\\d{6}$") String otp) {
-        return ResponseEntity.ok(Map.of("message", service.verifyOtp(email, otp)));
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        service.verifyOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(Map.of("message", "OTP Verified Successfully"));
     }
 
     @PostMapping("/forgot-password/reset")
@@ -60,17 +64,16 @@ public class CollegeStaffController {
         ));
     }
 
-    @PostMapping("/change-password")
+    @PatchMapping("/change-password")
     public ResponseEntity<?> changePassword(
             Authentication authentication,
-            @RequestParam String oldPassword,
-            @RequestParam @NotBlank @Size(min = 8) String newPassword) {
+            @Valid @RequestBody ChangePasswordRequest request) {
         return ResponseEntity.ok(Map.of(
                 "message",
                 service.changePassword(
                         authentication.getName(),
-                        oldPassword,
-                        newPassword
+                        request.getOldPassword(),
+                        request.getNewPassword()
                 )
         ));
     }

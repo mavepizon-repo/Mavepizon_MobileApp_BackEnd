@@ -17,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/trainer")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class DeveloperTrainerController {
 

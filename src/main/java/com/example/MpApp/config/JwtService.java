@@ -26,6 +26,9 @@ public class JwtService {
     private static final long EXPIRATION =
             1000 * 60 * 60 * 24; // 24 Hours
 
+    /** Claim holding the account's token counter at the time of issue. */
+    public static final String CLAIM_TOKEN_VERSION = "tv";
+
     /*
     ===============================
     GENERATE TOKEN
@@ -34,6 +37,17 @@ public class JwtService {
 
     public String generateToken(
             UserDetails userDetails) {
+        return generateToken(userDetails, 0);
+    }
+
+    /**
+     * @param tokenVersion the account's current counter. A later password change
+     *                     increments it, which makes every token carrying the old
+     *                     value fail validation.
+     */
+    public String generateToken(
+            UserDetails userDetails,
+            int tokenVersion) {
 
         String role = userDetails.getAuthorities().stream()
                 .map(a -> a.getAuthority())
@@ -45,6 +59,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(userDetails.getUsername())
                 .claim("role", role)
+                .claim(CLAIM_TOKEN_VERSION, tokenVersion)
                 .issuedAt(new Date())
                 .expiration(
                         new Date(
@@ -54,6 +69,16 @@ public class JwtService {
                 )
                 .signWith(key)
                 .compact();
+    }
+
+    /**
+     * Token counter recorded in the token. Tokens minted before this claim
+     * existed read as 0, which matches the column default, so they keep working
+     * rather than logging every user out on deploy.
+     */
+    public int extractTokenVersion(String token) {
+        Integer version = extractClaims(token).get(CLAIM_TOKEN_VERSION, Integer.class);
+        return version == null ? 0 : version;
     }
 
     /*

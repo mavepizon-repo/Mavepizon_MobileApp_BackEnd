@@ -51,6 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final List<String> PUBLIC_PREFIX_URLS = List.of(
             "/api/admin/forgot-password/",
+            "/api/freelancer/forgot-password/",
             "/api/teamlead/forgot-password/",
             "/api/officestaff/forgot-password/",
             "/api/student/forgot-password/",
@@ -100,7 +101,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .anyMatch(a -> requiredAuthority.equals(a.getAuthority()));
                 boolean accountActive = customUserDetailsService.isAccountActive(email, role);
 
-                if (roleMatches && accountActive && jwtService.isTokenValid(token, userDetails)) {
+                // A password change bumps the account's counter. If the token
+                // carries an older value it was minted before that change and
+                // must not be honoured, even though it has not yet expired.
+                int currentTokenVersion = customUserDetailsService.getTokenVersion(email, role);
+                boolean tokenVersionCurrent =
+                        currentTokenVersion >= 0
+                                && jwtService.extractTokenVersion(token) == currentTokenVersion;
+
+                if (roleMatches && accountActive && tokenVersionCurrent
+                        && jwtService.isTokenValid(token, userDetails)) {
                     GrantedAuthority issuedAuthority = new SimpleGrantedAuthority(requiredAuthority);
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(userDetails, null, List.of(issuedAuthority));

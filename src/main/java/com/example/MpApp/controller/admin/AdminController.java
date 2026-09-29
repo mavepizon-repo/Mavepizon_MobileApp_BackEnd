@@ -1,5 +1,8 @@
 package com.example.MpApp.controller.admin;
 
+import com.example.MpApp.dto.common.ForgotPasswordRequest;
+import com.example.MpApp.dto.common.OtpRequest;
+import com.example.MpApp.dto.common.VerifyOtpRequest;
 import com.example.MpApp.dto.task.TaskAdminUpdateRequest;
 import com.example.MpApp.dto.task.TaskRequest;
 import com.example.MpApp.dto.task.TaskReviewRequest;
@@ -18,8 +21,6 @@ import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import org.springframework.validation.annotation.Validated;
 
 import org.springframework.format.annotation.DateTimeFormat;
@@ -628,36 +629,45 @@ public class AdminController {
 
     @PostMapping("/forgot-password/send-otp")
     public ResponseEntity<?> sendOtp(
-            @RequestParam @NotBlank @Email String email) {
+            @Valid @RequestBody OtpRequest request) {
 
         return ResponseEntity.ok(
-                service.sendOtp(email)
+                Map.of("message", service.sendOtp(request.getEmail()))
+        );
+    }
+
+
+    @PostMapping("/forgot-password/resend-otp")
+    public ResponseEntity<?> resendOtp(
+            @Valid @RequestBody OtpRequest request) {
+
+        return ResponseEntity.ok(
+                Map.of("message", service.sendOtp(request.getEmail()))
         );
     }
 
 
     @PostMapping("/forgot-password/verify-otp")
     public ResponseEntity<?> verifyOtp(
-            @RequestParam @NotBlank @Email String email,
-            @RequestParam @NotBlank @Pattern(regexp = "^\\d{6}$") String otp) {
+            @Valid @RequestBody VerifyOtpRequest request) {
 
-        return ResponseEntity.ok(
-                service.verifyOtp(email, otp)
-        );
+        service.verifyOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(Map.of("message", "OTP Verified Successfully"));
     }
 
 
     @PostMapping("/forgot-password/reset")
     public ResponseEntity<?> resetPassword(
-            @RequestParam @NotBlank @Email String email,
-            @RequestParam @NotBlank @Pattern(regexp = "^\\d{6}$") String otp,
-            @RequestParam @NotBlank @Size(min = 8) String newPassword) {
+            @Valid @RequestBody ForgotPasswordRequest request) {
 
         return ResponseEntity.ok(
-                service.resetPassword(
-                        email,
-                        otp,
-                        newPassword
+                Map.of(
+                        "message",
+                        service.resetPassword(
+                                request.getEmail(),
+                                request.getOtp(),
+                                request.getNewPassword()
+                        )
                 )
         );
     }

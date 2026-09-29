@@ -2,12 +2,18 @@ package com.example.MpApp.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -16,6 +22,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * 1. Handles Quota/Business Rule Violations
@@ -101,26 +109,101 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 7. Handles authenticated users attempting to access another staff member's data.
+     * 7a. OTP failures are expected user errors (wrong code, expired code,
+     * cooldown). They must not reach the 500 catch-all below, which would both
+     * misreport them as server faults and echo the internal message.
+     */
+    @ExceptionHandler(OtpException.class)
+    public ResponseEntity<Map<String, Object>> handleOtpException(
+            OtpException ex, HttpServletRequest request) {
+        return createErrorResponse(HttpStatus.BAD_REQUEST, ex.getCode(), ex.getMessage(), request);
+    }
+
+    /**
+     * 7b. Throttling. Advertises how long to wait so a well-behaved client does
+     * not have to guess.
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimitExceededException(
+            RateLimitExceededException ex, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> response =
+                createErrorResponse(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", ex.getMessage(), request);
+        response.getHeaders().add("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
+        return response;
+    }
+
+    /**
+     * 8a. A request for a URL that does not map to anything must answer 404, not
+     * fall through to the catch-all below.
+     *
+     * <p>Spring raises this for an unmapped path. Because it was unhandled it
+     * reached the {@code Exception} handler and came back as 500 "An unexpected
+     * error occurred", so every typo in a path or a client pointing at a route
+     * that does not exist looked like a server fault. That is how a whole
+     * forgot-password API drifting out of sync with the deployed backend went
+     * unnoticed: the live probe reported a server error instead of "no such
+     * endpoint".
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(
+            NoResourceFoundException ex, HttpServletRequest request) {
+        return createErrorResponse(HttpStatus.NOT_FOUND, "Not Found",
+                "The requested endpoint does not exist.", request);
+    }
+
+    /** Same reason as above: a wrong verb is a client error, not a server fault. */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        return createErrorResponse(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed",
+                ex.getMessage(), request);
+    }
+
+    /** A malformed or unsupported JSON body is likewise the caller's problem. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return createErrorResponse(HttpStatus.BAD_REQUEST, "Malformed Request",
+                "The request body could not be read. Check that it is valid JSON.", request);
+    }
+
+    /** DTO validation that happens on method parameters rather than the body. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParameter(
+            MissingServletRequestParameterException ex, HttpServletRequest request) {
+        return createErrorResponse(HttpStatus.BAD_REQUEST, "Validation Failed",
+                "Required parameter '" + ex.getParameterName() + "' is missing.", request);
+    }
+
+    /**
+     * 8b. Global Catch-All Fallback Handler (Prevents unhandled low-level system leakages)
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGlobalException(
+            Exception ex, HttpServletRequest request) {
+
+        // Deliberately does not include ex.getMessage(). The previous version
+        // appended it, which leaked SQL fragments, file paths and internal class
+        // names to any caller who could trigger an unexpected error. The real
+        // cause still goes to the server log; the client gets a generic message
+        // plus the correlation-free request path.
+        LOGGER.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), ex);
+
+        return createErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                "An unexpected error occurred. Please try again later.",
+                request
+        );
+    }
+
+    /**
+     * 9. Handles authenticated users attempting to access another staff member's data.
      */
     @ExceptionHandler(OwnershipViolationException.class)
     public ResponseEntity<Map<String, Object>> handleOwnershipViolationException(
             OwnershipViolationException ex, HttpServletRequest request) {
         return createErrorResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), request);
-    }
-
-    /**
-     * 8. Global Catch-All Fallback Handler (Prevents unhandled low-level system leakages)
-     */
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGlobalException(
-            Exception ex, HttpServletRequest request) {
-        return createErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "Internal Server Error",
-                "An unexpected system anomaly occurred: " + ex.getMessage(),
-                request
-        );
     }
 
     /**

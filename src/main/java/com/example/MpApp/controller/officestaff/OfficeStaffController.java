@@ -1,8 +1,10 @@
 package com.example.MpApp.controller.officestaff;
 
 import com.example.MpApp.dto.Attendance.AttendanceResponseDTO;
-import com.example.MpApp.dto.common.ForgotPasswordRequest;
 import com.example.MpApp.dto.common.ChangePasswordRequest;
+import com.example.MpApp.dto.common.ForgotPasswordRequest;
+import com.example.MpApp.dto.common.OtpRequest;
+import com.example.MpApp.dto.common.VerifyOtpRequest;
 import com.example.MpApp.dto.file.FileViewResponse;
 import com.example.MpApp.dto.officestaff.*;
 import com.example.MpApp.entity.officestaff.OfficeStaff;
@@ -15,10 +17,7 @@ import com.example.MpApp.dto.task.TaskUpdateRequest;
 import com.example.MpApp.entity.task.Task;
 import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -129,13 +128,19 @@ public ResponseEntity<?> getMyLeaveHistory(
 
     // ================= FORGOT & RESET PASSWORD =================
     @PostMapping("/forgot-password/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestParam @NotBlank @Email String email) {
-        return ResponseEntity.ok(service.sendOtp(email));
+    public ResponseEntity<?> sendOtp(@Valid @RequestBody OtpRequest request) {
+        return ResponseEntity.ok(Map.of("message", service.sendOtp(request.getEmail())));
+    }
+
+    @PostMapping("/forgot-password/resend-otp")
+    public ResponseEntity<?> resendOtp(@Valid @RequestBody OtpRequest request) {
+        return ResponseEntity.ok(Map.of("message", service.sendOtp(request.getEmail())));
     }
 
     @PostMapping("/forgot-password/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestParam @NotBlank @Email String email, @RequestParam @NotBlank @Pattern(regexp = "^\\d{6}$") String otp) {
-        return ResponseEntity.ok(service.verifyOtp(email, otp));
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        service.verifyOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(Map.of("message", "OTP Verified Successfully"));
     }
 
     @PostMapping("/forgot-password/reset")
@@ -170,14 +175,15 @@ public ResponseEntity<PerformanceSummaryDTO> getPerformanceSummary(
     // Add this to OfficeStaffController.java
 
     @PatchMapping("/change-password")
-    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
-        String email = request.getEmail();
-        String oldPassword = request.getOldPassword();
-        String newPassword = request.getNewPassword();
-
-        // The service method will throw exceptions (IllegalStateException, InvalidCredentialsException)
-        // if the logic fails, which the GlobalExceptionHandler will automatically handle.
-        String message = service.changePassword(email, oldPassword, newPassword);
+    public ResponseEntity<?> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        // Identity comes from the validated token, never from the payload.
+        String message = service.changePassword(
+                authentication.getName(),
+                request.getOldPassword(),
+                request.getNewPassword()
+        );
 
         return ResponseEntity.ok(Map.of("message", message));
     }

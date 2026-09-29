@@ -96,6 +96,8 @@ public class SecurityConfig {
                                 "/api/admin/login",
                                 "/api/admin/forgot-password/**",
                                 "/api/freelancer/login",
+"/api/freelancer/forgot-password/**",
+
 
                                 "/api/teamlead/login",
                                 "/api/teamlead/forgot-password/**",
@@ -120,6 +122,11 @@ public class SecurityConfig {
 
                         // ================= TEAM LEAD =================
                         .requestMatchers("/api/teamlead/**").hasAnyRole("TEAM_LEAD","ADMIN")
+                        // TeamLeadController is mapped at "/api", so its change-password route
+                        // lands on "/api/change-password" instead of under "/api/teamlead/**".
+                        // Without an explicit rule it fell through to anyRequest().authenticated()
+                        // and let any signed-in role submit a password change for any account.
+                        .requestMatchers("/api/change-password").hasAnyRole("TEAM_LEAD", "ADMIN")
 
                         // ================= OFFICE STAFF =================
                         .requestMatchers("/api/officestaff/telecalling/**").hasRole("OFFICE_STAFF")

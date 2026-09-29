@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/certificates")
-@CrossOrigin("*")
 public class CertificateController {
     @Autowired private CertificateService service;
 

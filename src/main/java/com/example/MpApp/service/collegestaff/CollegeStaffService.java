@@ -1,6 +1,9 @@
 package com.example.MpApp.service.collegestaff;
 
 import com.example.MpApp.security.PasswordPolicy;
+import com.example.MpApp.service.otp.OtpService;
+import com.example.MpApp.exception.ResourceNotFoundException;
+import com.example.MpApp.exception.OtpException;
 
 import com.example.MpApp.config.JwtService;
 import com.example.MpApp.exception.InvalidCredentialsException;
@@ -12,8 +15,6 @@ import com.example.MpApp.entity.collegestaff.CollegeStaffFiles;
 import com.example.MpApp.entity.student.Student;
 import com.example.MpApp.repository.collegestaff.CollegeStaffFilesRepository;
 import com.example.MpApp.repository.collegestaff.CollegeStaffRepository;
-import com.example.MpApp.repository.OtpRepository;
-import com.example.MpApp.service.EmailService;
 import com.example.MpApp.repository.student.StudentRepository;
 import jakarta.transaction.Transactional;
 import org.apache.poi.ss.usermodel.*;
@@ -49,13 +50,8 @@ public class CollegeStaffService {
     @Autowired
     private CollegeStaffFilesRepository collegeStaffFilesRepository;
 
-    private static final SecureRandom OTP_RANDOM = new SecureRandom();
-
     @Autowired
-    private OtpRepository otpRepository;
-
-    @Autowired
-    private EmailService emailService;
+    private OtpService otpService;
 
     public String extractEmail(String authHeader){
         if (authHeader == null ||
@@ -101,7 +97,7 @@ public class CollegeStaffService {
                 .roles("COLLEGE_STAFF")
                 .build();
 
-        String token = jwtService.generateToken(userDetails);
+        String token = jwtService.generateToken(userDetails, collegeStaff.getTokenVersion());
 
         response.put("token", token);
         response.put("id",String.valueOf(collegeStaff.getId()));
@@ -137,65 +133,37 @@ public class CollegeStaffService {
 
     // ================= FORGOT PASSWORD FLOW =================
 
-    @Transactional
+    private static final String ROLE = "COLLEGE_STAFF";
+
+    /**
+     * Acknowledges the request whether or not the address is registered, so the
+     * response cannot be used to discover which college staff emails exist.
+     */
     public String sendOtp(String email) {
-        repository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email Not Found"));
-
-        OtpEntity existing = otpRepository.findByEmail(email).orElse(null);
-        if (existing != null && existing.getLastSentAt() != null
-                && existing.getLastSentAt().plusSeconds(30).isAfter(LocalDateTime.now())) {
-            throw new RuntimeException("Please wait before requesting another OTP");
-        }
-
-        String otp = String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
-        otpRepository.deleteByEmail(email);
-
-        OtpEntity entity = new OtpEntity();
-        entity.setEmail(email);
-        entity.setOtpCode(passwordEncoder.encode(otp));
-        entity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
-        entity.setVerificationAttempts(0);
-        entity.setLastSentAt(LocalDateTime.now());
-        otpRepository.save(entity);
-
-        emailService.sendOtpEmail(email, otp);
-        return "OTP sent successfully";
+        return otpService.issueOtp(email, ROLE, repository.findByEmail(email).isPresent());
     }
-
-    @Transactional
-    public String verifyOtp(String email, String otp) {
-        OtpEntity entity = otpRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("OTP not requested"));
-
-        if (entity.getExpiryTime().isBefore(LocalDateTime.now())) {
-            otpRepository.deleteByEmail(email);
-            throw new RuntimeException("OTP has expired");
-        }
-        if (entity.getVerificationAttempts() >= 5) {
-            otpRepository.deleteByEmail(email);
-            throw new RuntimeException("Too many failed OTP attempts");
-        }
-        if (!passwordEncoder.matches(otp, entity.getOtpCode())) {
-            entity.setVerificationAttempts(entity.getVerificationAttempts() + 1);
-            if (entity.getVerificationAttempts() >= 5) otpRepository.deleteByEmail(email);
-            else otpRepository.save(entity);
-            throw new RuntimeException("Invalid OTP");
-        }
-        // Consume the OTP immediately after successful verification so it cannot be reused.
-        otpRepository.deleteByEmail(email);
-        return "OTP Verified Successfully";
+    public void verifyOtp(String email, String otp) {
+        otpService.verifyOtp(email, ROLE, otp);
     }
-
+    /**
+     * Transactional so that consuming the OTP and writing the new password are
+     * a single unit. Without it {@code consumeVerifiedOtp} committed on its own,
+     * so a password that then failed {@code PasswordPolicy.validate} left the
+     * code already destroyed and the user had to start the entire flow again.
+     */
     @Transactional
     public String resetPassword(String email, String otp, String newPassword) {
-        verifyOtp(email, otp);
-        CollegeStaff collegeStaff = repository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+        // Validate before consuming, so the code survives a rejected password.
         PasswordPolicy.validate(newPassword);
+
+        otpService.consumeVerifiedOtp(email, ROLE, otp);
+
+        CollegeStaff collegeStaff = repository.findByEmail(email)
+                .orElseThrow(() -> new OtpException("OTP_NOT_REQUESTED",
+                        "No OTP has been requested for this account. Please request an OTP first."));
         collegeStaff.setPassword(passwordEncoder.encode(newPassword));
+        collegeStaff.setTokenVersion(collegeStaff.getTokenVersion() + 1);
         repository.save(collegeStaff);
-        otpRepository.deleteByEmail(email);
         return "Password Reset Successful";
     }
 
@@ -203,14 +171,16 @@ public class CollegeStaffService {
 
     public String changePassword(String email, String oldPassword, String newPassword) {
         CollegeStaff collegeStaff = repository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email Not Found"));
+                .orElseThrow(() -> new ResourceNotFoundException("College Staff not found"));
 
         if (!passwordEncoder.matches(oldPassword, collegeStaff.getPassword())) {
-            throw new RuntimeException("Invalid Old Password");
+            throw new InvalidCredentialsException("Invalid Old Password");
         }
 
         PasswordPolicy.validate(newPassword);
         collegeStaff.setPassword(passwordEncoder.encode(newPassword));
+        // Revoke tokens issued under the old password.
+        collegeStaff.setTokenVersion(collegeStaff.getTokenVersion() + 1);
         repository.save(collegeStaff);
 
         return "Password Changed Successfully";
@@ -232,13 +202,7 @@ public class CollegeStaffService {
         if (file.isEmpty()) {
             throw new RuntimeException("Please upload a valid Excel file.");
         }
-        String contentType = file.getContentType();
-        if (contentType == null || (!contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                && !contentType.equals("application/vnd.ms-excel"))) {
-            throw new RuntimeException("Only .xlsx and .xls formats are supported.");
-        }
 
-        // 2. Fetch College Staff Context
         CollegeStaff staff = repository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("College Staff not found for Email: " + email));
 

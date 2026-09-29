@@ -1,8 +1,11 @@
 package com.example.MpApp.service.freelancer;
 
 import com.example.MpApp.security.PasswordPolicy;
+import com.example.MpApp.service.otp.OtpService;
+import com.example.MpApp.exception.OtpException;
 
 import com.example.MpApp.config.JwtService;
+import com.example.MpApp.entity.OtpEntity;
 import com.example.MpApp.dto.Freelancer.FreelancerRequestDTO;
 import com.example.MpApp.dto.Freelancer.FreelancerResponseDTO;
 import com.example.MpApp.dto.Freelancer.FreelancerTaskResponseDTO;
@@ -23,9 +26,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
+import java.security.SecureRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,6 +43,9 @@ public class FreelancerServiceImpl implements FreelancerService {
     private final JwtService jwtService;
     private final FreelancerTaskRepository freelancerTaskRepository;
     private final CloudinaryService cloudinaryService;
+    private final OtpService otpService;
+
+    private static final SecureRandom OTP_RANDOM = new SecureRandom();
 
     public FreelancerServiceImpl(
             FreelancerRepository freelancerRepository,
@@ -44,7 +53,8 @@ public class FreelancerServiceImpl implements FreelancerService {
             BCryptPasswordEncoder passwordEncoder,
             JwtService jwtService,
             FreelancerTaskRepository freelancerTaskRepository,
-            CloudinaryService cloudinaryService
+            CloudinaryService cloudinaryService,
+            OtpService otpService
     ) {
         this.freelancerRepository = freelancerRepository;
         this.techStackRepository = techStackRepository;
@@ -52,6 +62,7 @@ public class FreelancerServiceImpl implements FreelancerService {
         this.jwtService = jwtService;
         this.freelancerTaskRepository = freelancerTaskRepository;
         this.cloudinaryService = cloudinaryService;
+        this.otpService = otpService;
     }
 
     // =========================================================
@@ -267,7 +278,7 @@ public class FreelancerServiceImpl implements FreelancerService {
                         .build();
 
         String token =
-                jwtService.generateToken(userDetails);
+                jwtService.generateToken(userDetails, freelancer.getTokenVersion());
 
         return Map.of(
                 "freelancerId",
@@ -383,6 +394,64 @@ public class FreelancerServiceImpl implements FreelancerService {
                 .stream()
                 .map(this::mapEntityToDto)
                 .collect(Collectors.toList());
+    }
+
+    // =========================================================
+    // FORGOT PASSWORD (delegates to the shared OtpService)
+    // =========================================================
+
+    private static final String ROLE = "FREELANCER";
+
+    /**
+     * Acknowledges the request whether or not the address is registered, so the
+     * response cannot be used to discover which freelancer emails exist.
+     */
+    @Override
+    public String sendOtp(String email) {
+        return otpService.issueOtp(email, ROLE, freelancerRepository.findByEmail(email).isPresent());
+    }
+
+    /**
+     * Intentionally NOT transactional.
+     *
+     * <p>{@code OtpService.verifyOtp} commits its own writes so that a wrong code
+     * throwing cannot roll back the failed-attempt counter. Wrapping it in an
+     * outer transaction undoes exactly that: the counter increment is rolled back
+     * with the exception, the 5-attempt lockout never trips for freelancers, and
+     * a 6-digit code becomes brute-forceable. The other five roles were already
+     * correct here.
+     */
+    @Override
+    public void verifyOtp(String email, String otp) {
+        otpService.verifyOtp(email, ROLE, otp);
+    }
+
+    /**
+     * Transactional so that consuming the OTP and writing the new password are
+     * a single unit. Without it {@code consumeVerifiedOtp} committed on its own,
+     * so a password that then failed {@code PasswordPolicy.validate} left the
+     * code already destroyed and the user had to start the entire flow again.
+     */
+    @Transactional
+    public String resetPassword(String email, String otp, String newPassword) {
+        // Validate before consuming, so the code survives a rejected password.
+        PasswordPolicy.validate(newPassword);
+
+        // Consumes the code so it cannot be replayed for a second reset.
+        otpService.consumeVerifiedOtp(email, ROLE, otp);
+
+        Freelancer freelancer = freelancerRepository.findByEmail(email)
+                .orElseThrow(() -> new OtpException("OTP_NOT_REQUESTED",
+                        "No OTP has been requested for this account. Please request an OTP first."));
+
+        freelancer.setPassword(passwordEncoder.encode(newPassword));
+
+        // Revoke every token issued before this reset. Without this, whoever
+        // held a leaked token keeps access for the full 24h expiry.
+        freelancer.setTokenVersion(freelancer.getTokenVersion() + 1);
+
+        freelancerRepository.save(freelancer);
+        return "Password Reset Successful";
     }
 
     // =========================================================

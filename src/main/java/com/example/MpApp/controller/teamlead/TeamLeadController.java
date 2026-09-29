@@ -1,7 +1,9 @@
 package com.example.MpApp.controller.teamlead;
 
-import com.example.MpApp.dto.common.ForgotPasswordRequest;
 import com.example.MpApp.dto.common.ChangePasswordRequest;
+import com.example.MpApp.dto.common.ForgotPasswordRequest;
+import com.example.MpApp.dto.common.OtpRequest;
+import com.example.MpApp.dto.common.VerifyOtpRequest;
 import com.example.MpApp.dto.officestaff.CheckInRequestDTO;
 import com.example.MpApp.dto.officestaff.LeaveRequestDTO;
 import com.example.MpApp.dto.officestaff.OfficeStaffPermissionResponseDTO;
@@ -35,7 +37,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -802,40 +804,51 @@ public class TeamLeadController {
     // FORGOT & RESET PASSWORD
     // ==========================================================
 
-    @PostMapping("/forgot-password/send-otp")
+    @PostMapping("/teamlead/forgot-password/send-otp")
     public ResponseEntity<?> sendOtp(
-            @RequestParam @NotBlank @Email String email) {
+            @Valid @RequestBody OtpRequest request) {
 
         return ResponseEntity.ok(
-                service.sendOtp(email)
+                Map.of("message", service.sendOtp(request.getEmail()))
         );
     }
 
 
-    @PostMapping("/forgot-password/verify-otp")
+    @PostMapping("/teamlead/forgot-password/resend-otp")
+    public ResponseEntity<?> resendOtp(
+            @Valid @RequestBody OtpRequest request) {
+
+        return ResponseEntity.ok(
+                Map.of("message", service.sendOtp(request.getEmail()))
+        );
+    }
+
+
+    @PostMapping("/teamlead/forgot-password/verify-otp")
     public ResponseEntity<?> verifyOtp(
-            @RequestParam @NotBlank @Email String email,
-            @RequestParam @NotBlank @Pattern(regexp = "^\\d{6}$") String otp) {
+            @Valid @RequestBody VerifyOtpRequest request) {
 
-        return ResponseEntity.ok(
-                service.verifyOtp(
-                        email,
-                        otp
-                )
-        );
+        service.verifyOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(Map.of("message", "OTP Verified Successfully"));
     }
 
 
-    @PostMapping("/forgot-password/reset")
+    @PostMapping("/teamlead/forgot-password/reset")
     public ResponseEntity<?> resetPassword(
             @Valid @RequestBody
             ForgotPasswordRequest forgotPasswordRequest) {
 
+        // Wrapped like every other role. This one used to return the bare
+        // service string, so the body was `"Password Reset Successful"` instead
+        // of `{"message": ...}` and the client had to special-case it.
         return ResponseEntity.ok(
-                service.resetPassword(
-                        forgotPasswordRequest.getEmail(),
-                        forgotPasswordRequest.getOtp(),
-                        forgotPasswordRequest.getNewPassword()
+                Map.of(
+                        "message",
+                        service.resetPassword(
+                                forgotPasswordRequest.getEmail(),
+                                forgotPasswordRequest.getOtp(),
+                                forgotPasswordRequest.getNewPassword()
+                        )
                 )
         );
     }
@@ -926,13 +939,15 @@ public class TeamLeadController {
 
     @PatchMapping("/change-password")
     public ResponseEntity<?> changePassword(
+            Authentication authentication,
             @Valid @RequestBody ChangePasswordRequest request) {
 
+        // Identity comes from the validated token, never from the payload.
         return ResponseEntity.ok(
                 Map.of(
                         "message",
                         service.changePassword(
-                                request.getEmail(),
+                                authentication.getName(),
                                 request.getOldPassword(),
                                 request.getNewPassword()
                         )
